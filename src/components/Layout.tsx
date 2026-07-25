@@ -16,9 +16,8 @@ import {
   SettingsIcon,
   StarIcon,
   UserIcon,
-  VolleyballIcon,
-  BrandMark,
 } from "./icons";
+import { Logo } from "./Logo";
 
 // Which tab root a route belongs to. Deep routes keep their parent tab lit:
 // a game detail is still "Browse", a chat room is still "Chats", a user
@@ -196,7 +195,7 @@ export default function Layout() {
         className="mx-auto flex max-w-md flex-col items-center justify-center gap-4 px-8 text-center"
         style={{ height: "100svh" }}
       >
-        <VolleyballIcon className="h-12 w-12 text-brand" />
+        <Logo className="h-12 w-12" />
         <h1 className="text-xl font-extrabold tracking-tight text-white">
           We'll be right back
         </h1>
@@ -223,7 +222,7 @@ export default function Layout() {
           className="flex items-center gap-2 text-left transition-all duration-150 active:scale-95 active:opacity-70"
           aria-label="Go to home"
         >
-          <BrandMark className="h-7 w-7" />
+          <Logo className="h-7 w-7" />
           <span className="text-lg font-extrabold tracking-tight text-white">
             Coterie
           </span>

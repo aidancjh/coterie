@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { VolleyballIcon } from "./icons";
+import { Logo } from "./Logo";
 
 /**
  * Shown for any route that doesn't match (the catch-all in App.tsx). Renders
@@ -11,7 +11,7 @@ export default function NotFound() {
   const navigate = useNavigate();
   return (
     <div className="flex flex-col items-center justify-center gap-4 px-6 py-20 text-center">
-      <VolleyballIcon className="h-12 w-12 text-brand" />
+      <Logo className="h-12 w-12" />
       <div>
         <h1 className="text-xl font-bold text-white">Page not found</h1>
         <p className="mt-1 max-w-xs text-sm text-slate-400">

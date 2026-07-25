@@ -39,8 +39,8 @@ import {
   TargetIcon,
   UserIcon,
   UsersIcon,
-  VolleyballIcon,
 } from "../components/icons";
+import { Logo } from "../components/Logo";
 
 export default function GameDetail() {
   const { id = "" } = useParams();
@@ -564,7 +564,7 @@ export default function GameDetail() {
           </InfoRow>
         )}
         {game.netHeight && game.netHeight !== "Venue Standard" && (
-          <InfoRow icon={<VolleyballIcon className="h-4 w-4" />} label="Net height">
+          <InfoRow icon={<Logo className="h-4 w-4" />} label="Net height">
             {game.netHeight}
           </InfoRow>
         )}

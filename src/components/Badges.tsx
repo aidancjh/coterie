@@ -64,7 +64,15 @@ export function StarRating({
  * Prominent "hero" rating block for profiles — big number + large stars on a
  * warm gradient. Only render when there is at least one vote.
  */
-export function RatingHero({ avg, count }: { avg: number; count: number }) {
+export function RatingHero({
+  avg,
+  count,
+  participationRate,
+}: {
+  avg: number;
+  count: number;
+  participationRate?: number | null;
+}) {
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-r from-brand/15 to-brand/5 p-4 ring-1 ring-brand/25">
       <div className="shrink-0 text-center">
@@ -76,7 +84,17 @@ export function RatingHero({ avg, count }: { avg: number; count: number }) {
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <StarRating avg={avg} size="lg" />
+        <div className="flex items-center justify-between gap-3">
+          <StarRating avg={avg} size="md" />
+          {participationRate != null && (
+            <div className="shrink-0 text-right leading-none">
+              <div className="text-lg font-bold text-slate-50">{participationRate}%</div>
+              <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                Participation
+              </div>
+            </div>
+          )}
+        </div>
         <p className="mt-1.5 text-xs font-medium text-slate-400">
           Player rating · {count} vote{count === 1 ? "" : "s"}
         </p>

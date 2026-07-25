@@ -278,7 +278,7 @@ export default function WaitlistMobile() {
 
           <header className="wl-hd">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className="wl-logo-dot" />
+              <img src="/logo-mark.png" alt="Coterie" draggable={false} style={{ width: 26, height: 26, objectFit: "contain" }} />
               <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em", color: "#FFF" }}>
                 Coterie
               </span>

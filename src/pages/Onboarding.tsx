@@ -8,9 +8,9 @@ import {
   LeafIcon,
   TrophyIcon,
   UsersIcon,
-  VolleyballIcon,
   ZapIcon,
 } from "../components/icons";
+import { Logo } from "../components/Logo";
 
 const GENDER_OPTIONS = ["Man", "Woman", "Non-binary", "Prefer not to say"];
 
@@ -112,7 +112,7 @@ export default function Onboarding() {
     return (
       <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-10">
         <div className="mb-7 flex flex-col items-center text-center">
-          <VolleyballIcon className="h-10 w-10 text-brand" />
+          <Logo className="h-10 w-10" />
           <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white">
             A bit about you
           </h1>
@@ -193,7 +193,7 @@ export default function Onboarding() {
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-white px-5 py-10">
       {/* Header */}
       <div className="mb-7 flex flex-col items-center text-center">
-        <VolleyballIcon className="h-10 w-10 text-brand" />
+        <Logo className="h-10 w-10" />
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white">
           Welcome to Coterie!
         </h1>

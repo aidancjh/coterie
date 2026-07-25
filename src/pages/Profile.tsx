@@ -722,7 +722,7 @@ export default function Profile() {
           {/* Player rating — always shown for a consistent ratings area */}
           <div className="mt-4">
             {user?.playerRating && user.playerRating.count > 0 ? (
-              <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} />
+              <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} participationRate={user.participationRate} />
             ) : (
               <RatingEmpty />
             )}

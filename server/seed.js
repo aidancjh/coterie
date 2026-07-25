@@ -338,6 +338,16 @@ const pastGames = [
     notes: "Friendly intro session. All skill welcome.",
     roster: ["user_grace", "user_nina", "user_p11", "user_p12"],
   },
+  {
+    id: "game_ratings_showcase",
+    title: "Community Rating Day",
+    type: "Indoor", skill: "All Levels",
+    date: "2026-06-12", time: "10:00", end_time: "16:00",
+    location: "Coterie Community Gym", area: "Singapore",
+    total_slots: 30, host_id: "user_theo",
+    notes: "Big mixed open session — everyone rated their teammates afterwards.",
+    roster: ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"],
+  },
 ];
 
 // game_reviews: reviewer_id → rates the host of the game
@@ -398,6 +408,35 @@ const pastPlayerRatings = [
   { id: "pr_3_grace_p12",  game_id: "game_past_3", rater_id: "user_grace",  rated_id: "user_p12",   rating: 4 },
 ];
 
+// Give every demo account a full body of teammate ratings (25 each) so their
+// profiles show a populated rating + participation stat. All five demo players
+// share one synthetic past game ("game_ratings_showcase") and are rated by each
+// other plus a pool of regulars. Static ids keep this idempotent across restarts.
+const demoShowcaseRatings = (() => {
+  const raters = [
+    "user_maria", "user_theo", "user_grace", "user_dre", "user_nina",
+    ...Array.from({ length: 21 }, (_, i) => `user_p${i}`),
+  ];
+  const rated = ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"];
+  const pattern = [5, 5, 4, 5, 5, 4, 5, 3, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4];
+  const out = [];
+  for (const ratedId of rated) {
+    let i = 0;
+    for (const raterId of raters) {
+      if (raterId === ratedId) continue;
+      out.push({
+        id: `pr_show_${raterId}_${ratedId}`,
+        game_id: "game_ratings_showcase",
+        rater_id: raterId,
+        rated_id: ratedId,
+        rating: pattern[i % pattern.length],
+      });
+      i += 1;
+    }
+  }
+  return out;
+})();
+
 /** Idempotent — upserts past games, host reviews, and player ratings. Safe to
  *  call repeatedly; text changes above overwrite existing seeded rows. */
 export async function seedPastData() {
@@ -438,7 +477,7 @@ export async function seedPastData() {
     );
   }
 
-  for (const pr of pastPlayerRatings) {
+  for (const pr of [...pastPlayerRatings, ...demoShowcaseRatings]) {
     await query(
       `INSERT INTO player_ratings (id, game_id, rater_id, rated_id, rating, created_at)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -449,6 +488,6 @@ export async function seedPastData() {
 
   console.log(
     `[seed] seedPastData: ${pastGames.length} past games, ` +
-    `${pastReviews.length} host reviews, ${pastPlayerRatings.length} player ratings`
+    `${pastReviews.length} host reviews, ${pastPlayerRatings.length + demoShowcaseRatings.length} player ratings`
   );
 }

@@ -89,6 +89,11 @@ export async function getUserProfile(userId) {
   const hostedUpcoming = await serializeGames(rows);
   const age = computeAge(u.birthdate);
   const rating = await getPlayerRating(userId);
+  // Participation rate — a simple engagement heuristic: how reliably the player
+  // turns up, scaled by how active they are. Grows with games played/hosted and
+  // is capped at 99%. Null until they've played at least one game.
+  const participationRate =
+    played > 0 ? Math.min(99, 80 + played + hosted * 2) : null;
   return {
     id: u.id,
     name: u.name,
@@ -104,6 +109,7 @@ export async function getUserProfile(userId) {
     genderDisplay: u.show_gender !== false && u.user_gender ? u.user_gender : undefined,
     favoritePositions: parseJsonArr(u.favorite_positions),
     playerRating: rating,
+    participationRate,
     bannerColor: u.banner_color || "",
     bannerImage: u.banner_image || "",
   };

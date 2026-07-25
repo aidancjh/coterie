@@ -382,14 +382,11 @@ export default function WaitlistDesktop() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px,0.9vw,14px)" }}>
-          <div
-            style={{
-              width: "clamp(22px,2.4vw,40px)",
-              height: "clamp(22px,2.4vw,40px)",
-              borderRadius: "50%",
-              background: "conic-gradient(from 210deg, #D92632, #E0424D, #F5B6BA, #8F141D, #D92632)",
-              boxShadow: "0 2px 10px rgba(217,38,50,0.35)",
-            }}
+          <img
+            src="/logo-mark.png"
+            alt="Coterie"
+            draggable={false}
+            style={{ width: "clamp(24px,2.6vw,44px)", height: "clamp(24px,2.6vw,44px)", objectFit: "contain" }}
           />
           <span style={{ fontSize: "clamp(17px,1.8vw,30px)", fontWeight: 700, letterSpacing: "-0.02em", color: "#141B28" }}>
             Coterie

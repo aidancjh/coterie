@@ -3,7 +3,8 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api, setToken } from "../lib/api";
 import type { User } from "../types";
-import { IconChip, MailIcon, VolleyballIcon } from "../components/icons";
+import { IconChip, MailIcon } from "../components/icons";
+import { Logo } from "../components/Logo";
 import ErrorModal from "../components/ErrorModal";
 
 type Mode = "signup" | "login" | "forgot" | "reset";
@@ -160,7 +161,7 @@ export default function Auth() {
     return (
       <div className="mx-auto flex min-h-full max-w-md flex-col justify-center bg-white px-6 py-12">
         <div className="mb-8 flex flex-col items-center text-center">
-          <VolleyballIcon className="h-12 w-12 text-brand" />
+          <Logo className="h-12 w-12" />
           <span className="mt-3 text-2xl font-extrabold tracking-tight text-white">Coterie</span>
         </div>
         <h1 className="mb-1 text-xl font-bold text-white">Set a new password</h1>
@@ -198,7 +199,7 @@ export default function Auth() {
       return (
         <div className="mx-auto flex min-h-full max-w-md flex-col justify-center bg-white px-6 py-12">
           <div className="mb-8 flex flex-col items-center text-center">
-            <VolleyballIcon className="h-12 w-12 text-brand" />
+            <Logo className="h-12 w-12" />
             <span className="mt-3 text-2xl font-extrabold tracking-tight text-white">Coterie</span>
           </div>
           <div className="flex flex-col items-center rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center shadow-sm">
@@ -223,7 +224,7 @@ export default function Auth() {
     return (
       <div className="mx-auto flex min-h-full max-w-md flex-col justify-center bg-white px-6 py-12">
         <div className="mb-8 flex flex-col items-center text-center">
-          <VolleyballIcon className="h-12 w-12 text-brand" />
+          <Logo className="h-12 w-12" />
           <span className="mt-3 text-2xl font-extrabold tracking-tight text-white">Coterie</span>
         </div>
         <h1 className="mb-1 text-xl font-bold text-white">Forgot your password?</h1>
@@ -266,7 +267,7 @@ export default function Auth() {
     <div className="mx-auto flex min-h-full max-w-md flex-col justify-center bg-white px-6 py-12">
       {/* Brand */}
       <div className="mb-8 flex flex-col items-center text-center">
-        <VolleyballIcon className="h-12 w-12 text-brand" />
+        <Logo className="h-12 w-12" />
         <span className="mt-3 text-2xl font-extrabold tracking-tight text-white">Coterie</span>
         <span className="mt-1 text-sm text-slate-400">Find your players. Fill your games.</span>
       </div>

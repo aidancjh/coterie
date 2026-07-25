@@ -7,24 +7,12 @@
 
 function VolleyballBall() {
   return (
-    <svg viewBox="0 0 120 120" width="100%" height="100%" role="img" aria-label="Volleyball" style={{ display: "block" }}>
-      <defs>
-        <clipPath id="vbClip">
-          <circle cx="60" cy="60" r="54" />
-        </clipPath>
-        {/* one seam arm; reused at 120°/240° so the pinwheel is perfectly symmetric */}
-        <g id="vbArm" fill="none" stroke="#ffffff" strokeWidth="3.6" strokeLinecap="round">
-          <path d="M60 60 C 48 76, 46 96, 56 118" />
-          <path d="M78 66 C 68 82, 68 102, 76 118" />
-        </g>
-      </defs>
-      <circle cx="60" cy="60" r="54" fill="#d92632" />
-      <g clipPath="url(#vbClip)" opacity="0.96">
-        <use href="#vbArm" />
-        <use href="#vbArm" transform="rotate(120 60 60)" />
-        <use href="#vbArm" transform="rotate(240 60 60)" />
-      </g>
-    </svg>
+    <img
+      src="/logo-mark.png"
+      alt="Coterie"
+      draggable={false}
+      style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
+    />
   );
 }
 

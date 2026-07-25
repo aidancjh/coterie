@@ -74,6 +74,7 @@ export interface Profile {
   showGender?: boolean;
   favoritePositions?: string[];
   playerRating?: { count: number; avg: number | null };
+  participationRate?: number | null;
   bannerColor?: string;
   bannerImage?: string;
 }
@@ -171,6 +172,7 @@ export interface UserProfile {
   genderDisplay?: string;
   favoritePositions?: string[];
   playerRating?: { count: number; avg: number | null };
+  participationRate?: number | null;
   bannerColor?: string;
   bannerImage?: string;
   /** Whether the viewing user has blocked this profile's user. */

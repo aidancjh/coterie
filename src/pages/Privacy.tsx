@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { VolleyballIcon } from "../components/icons";
+import { Logo } from "../components/Logo";
 
 /**
  * Public privacy policy — required for App Store / Google Play submission and
@@ -10,7 +10,7 @@ export default function Privacy() {
   return (
     <div className="mx-auto max-w-md bg-white px-6 py-10">
       <Link to="/" className="mb-6 flex items-center gap-2">
-        <VolleyballIcon className="h-6 w-6 text-brand" />
+        <Logo className="h-6 w-6" />
         <span className="text-lg font-extrabold tracking-tight text-white">
           Coterie
         </span>
