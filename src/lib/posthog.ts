@@ -7,6 +7,7 @@ declare global {
     posthog?: {
       init: (key: string, opts?: Record<string, unknown>) => void;
       capture: (event: string, props?: Record<string, unknown>) => void;
+      register: (props: Record<string, unknown>) => void;
       opt_out_capturing: () => void;
     };
   }
@@ -45,6 +46,7 @@ export function initPostHog(onReady?: () => void) {
       // is fully initialized and reliably reads utm_source off the live URL.
       capture_pageview: false,
       loaded: () => {
+        registerCampaign();
         window.posthog?.capture("$pageview");
         maybeOptOut();
         onReady?.();
@@ -70,6 +72,29 @@ function maybeOptOut() {
   window.posthog?.opt_out_capturing();
   url.searchParams.delete("ph_optout");
   window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+}
+
+// Read the campaign attribution off the link (utm_source = platform,
+// utm_campaign = which video, optional utm_content = a variant) and register it
+// as PostHog super properties. Super properties attach to EVERY event this
+// browser sends afterwards — the pageview AND the later `waitlist_signup` — so
+// signups can be broken down per video even though waitlist visitors are
+// anonymous. Runs before the URL is cleaned, so the params are still present.
+function registerCampaign() {
+  if (typeof window === "undefined") return;
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const props: Record<string, string> = {};
+    const platform = p.get("utm_source");
+    const video = p.get("utm_campaign");
+    const variant = p.get("utm_content");
+    if (platform) props.platform = platform;
+    if (video) props.video = video;
+    if (variant) props.video_variant = variant;
+    if (Object.keys(props).length) window.posthog?.register(props);
+  } catch {
+    /* never let attribution break the page */
+  }
 }
 
 export function captureEvent(name: string) {

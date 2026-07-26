@@ -129,6 +129,43 @@ function darkToWhite(img) {
   return { w: img.w, h: img.h, data: d };
 }
 
+// Clip the pinwheel seams flush to the red circle: remove any WHITE pixel that
+// falls outside the mark's disc radius. Run on the red source (letters are still
+// black, so only the seam protrusions match white-outside-circle) — never the
+// disc or the wordmark letters.
+function clipProtrusions(img) {
+  const { w, h, data } = img;
+  const isRed = (i) => data[i + 3] > 140 && data[i] > 150 && data[i + 1] < 95 && data[i + 2] < 95;
+  // Disc centre = centroid of red pixels.
+  let sx = 0, sy = 0, n = 0;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) if (isRed((y * w + x) * 4)) { sx += x; sy += y; n++; }
+  if (!n) return img;
+  const cx = sx / n, cy = sy / n;
+  // Disc radius = 99th-percentile red distance (ignores any sparse tail outliers).
+  const dists = new Float64Array(n);
+  let k = 0;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (isRed((y * w + x) * 4)) dists[k++] = Math.hypot(x - cx, y - cy);
+  dists.sort();
+  const R = dists[Math.floor(n * 0.99)];
+  const lim = R * R;
+  // Remove WHITE pixels beyond the disc (the protruding seam tips). Letters are
+  // black in the red source, so full-image scan never touches them.
+  const d = Buffer.from(data);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (d[i + 3] === 0) continue;
+      if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200) {
+        const dx = x - cx, dy = y - cy;
+        if (dx * dx + dy * dy > lim) d[i + 3] = 0;
+      }
+    }
+  return { w, h, data: d };
+}
+
 // Alpha-weighted box downscale.
 function downscale(img, tw, th) {
   const { w: sw, h: sh, data: s } = img;
@@ -182,27 +219,38 @@ const mark = decodePNG(readFileSync(A("mark-standalone-red.png")));
 const lockup = decodePNG(readFileSync(A("lockup-red.png")));
 const wordmark = decodePNG(readFileSync(A("wordmark-red.png")));
 
-// 1. White-text lockups (deliverables)
-w(A("lockup-white.png"), darkToWhite(lockup));
-w(A("wordmark-white.png"), darkToWhite(wordmark));
+// 1. White-text lockups (deliverables) — clip seam protrusions, then whiten text
+w(A("lockup-white.png"), darkToWhite(clipProtrusions(lockup)));
+w(A("wordmark-white.png"), darkToWhite(clipProtrusions(wordmark)));
 
 // 2. In-app mark (exact copy, used via <img>)
 copyFileSync(A("mark-standalone-red.png"), P("logo-mark.png"));
 console.log("wrote ./public/logo-mark.png");
 
-// 3. Favicons / app icons (downscaled from the 1024 mark)
-w(P("favicon-32x32.png"), downscale(mark, 32, 32));
-w(P("apple-touch-icon.png"), downscale(mark, 180, 180));
-w(P("pwa-192x192.png"), downscale(mark, 192, 192));
-w(P("pwa-512x512.png"), downscale(mark, 512, 512));
-
-// 4. Maskable — mark at ~74% on a white tile (safe zone for Android masking)
-{
-  const tile = canvas(512, 512, [255, 255, 255]);
-  const m = downscale(mark, 380, 380);
-  over(tile, m, 66, 66);
-  w(P("maskable-512x512.png"), tile);
+// 3. Favicons / app icons — a filled white tile with the mark padded inside,
+// NOT a naked transparent downscale. iOS in particular treats apple-touch-icon
+// transparency as opaque BLACK (it doesn't composite it against anything), so a
+// transparent-background icon shows up as a black square with the mark bleeding
+// to the edges once "Add to Home Screen" is used — exactly the bug being fixed
+// here. A solid tile matches how every other app icon looks (filled square,
+// centered logo with breathing room) and is Apple's own recommendation (opaque,
+// no pre-rounded corners — the OS applies the squircle mask itself).
+function iconTile(size, padFrac = 0.13) {
+  const tile = canvas(size, size, [255, 255, 255]);
+  const inner = Math.round(size * (1 - 2 * padFrac));
+  const m = downscale(mark, inner, inner);
+  const off = Math.round((size - inner) / 2);
+  over(tile, m, off, off);
+  return tile;
 }
+w(P("favicon-32x32.png"), iconTile(32));
+w(P("apple-touch-icon.png"), iconTile(180));
+w(P("pwa-192x192.png"), iconTile(192));
+w(P("pwa-512x512.png"), iconTile(512));
+
+// 4. Maskable — larger safe margin so Android's circular/squircle crop can trim
+// the tile edges without ever clipping the mark itself.
+w(P("maskable-512x512.png"), iconTile(512, 0.13));
 
 // 5. OG image — mark on a dark canvas
 {
@@ -212,10 +260,12 @@ w(P("pwa-512x512.png"), downscale(mark, 512, 512));
   w(P("og-image.png"), og);
 }
 
-// 6. favicon.svg — the exact mark wrapped as SVG (crisp at any size)
+// 6. favicon.svg — mark on a white tile, matching the PNG icons above
 {
   const b64 = readFileSync(A("mark-standalone-red.png")).toString("base64");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><image href="data:image/png;base64,${b64}" width="1024" height="1024"/></svg>`;
+  const pad = 133; // ~13% of 1024, matches iconTile's padFrac
+  const inner = 1024 - pad * 2;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#ffffff"/><image href="data:image/png;base64,${b64}" x="${pad}" y="${pad}" width="${inner}" height="${inner}"/></svg>`;
   writeFileSync(P("favicon.svg"), svg);
   console.log("wrote ./public/favicon.svg");
 }
