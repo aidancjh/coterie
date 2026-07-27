@@ -528,26 +528,32 @@ const HOST_OPENERS = [
   "We're on! Warmup starts 10 min before, don't be shy if you're early.",
   "Nets are sorted. Looking forward to this one 🙌",
 ];
+// Statements only — anything that asks something lives in CHAT_QA below, so a
+// question is never left hanging without the host answering it.
 const PLAYER_LINES = [
   "Nice, count me in!",
   "Just booked my Grab, should be there 10 min early.",
   "Anyone coming from the east side? Happy to carpool.",
-  "First time at this venue — is parking easy?",
-  "Bringing a friend if there's still a slot going.",
   "Can't wait, been looking forward to this all week.",
-  "Do we need to bring our own ball or is it provided?",
   "Might be 5 min late, coming straight from work 🙏",
   "Weather's looking good for once!",
   "I'll bring an extra ball just in case.",
   "Great session last time, hoping for the same crowd.",
-  "Is there a water cooler there or should I pack my own?",
+  "Stretching beforehand this time, last week wrecked me 😅",
+  "See everyone there!",
 ];
-const HOST_REPLIES = [
-  "Parking's easy, plenty of space on the ground floor.",
-  "Balls are provided, just bring yourself 👍",
-  "No worries, we'll be warming up anyway.",
-  "Yes there's still room, bring them along!",
-  "Water cooler's on site but pack a bottle to be safe.",
+// A player question and the host's answer to it, kept together.
+const CHAT_QA = [
+  { q: "First time at this venue — is parking easy?",
+    a: "Parking's easy, plenty of space on the ground floor." },
+  { q: "Do we need to bring our own ball or is it provided?",
+    a: "Balls are provided, just bring yourself 👍" },
+  { q: "Bringing a friend if there's still a slot going?",
+    a: "Yes there's still room, bring them along!" },
+  { q: "Is there a water cooler there or should I pack my own?",
+    a: "Water cooler's on site but pack a bottle to be safe." },
+  { q: "What time should we actually turn up?",
+    a: "Anytime from 10 min before — we'll be warming up." },
 ];
 const WRAP_LINES = [
   "Great games today everyone, same time next week? 🏐",
@@ -558,20 +564,29 @@ const WRAP_LINES = [
 ];
 
 // Comments are public (pre-join questions), so they read differently to chat.
-const COMMENT_LINES = [
-  "Is this beginner friendly or more competitive?",
-  "Any slots left for a +1?",
-  "What's the parking situation like?",
-  "Do you usually play 6v6 or rotate smaller teams?",
-  "Been meaning to join one of these — adding myself to the list!",
-  "Is it indoor shoes only?",
+// Paired so the host's reply actually answers the question above it — picking
+// question and answer from two independent pools produced exchanges like
+// "Is it indoor shoes only?" → "All levels welcome!".
+const COMMENT_QA = [
+  { q: "Is this beginner friendly or more competitive?",
+    a: "All levels welcome, we rotate so everyone gets court time!" },
+  { q: "Any slots left for a +1?",
+    a: "Yep, a couple of spots free — grab them while they last." },
+  { q: "What's the parking situation like?",
+    a: "Parking's right next to the hall, never had an issue." },
+  { q: "Do you usually play 6v6 or rotate smaller teams?",
+    a: "6v6 mostly, but we go smaller if turnout is light." },
+  { q: "Is it indoor shoes only?",
+    a: "Indoor shoes please, keeps the court in good shape 🙏" },
+  { q: "How early should I turn up?",
+    a: "10 minutes before is plenty — we warm up together." },
 ];
-const COMMENT_REPLIES = [
-  "All levels welcome, we rotate so everyone gets court time!",
-  "Yep, a couple of spots free — grab them while they last.",
-  "Parking's right next to the hall, never had an issue.",
-  "6v6 mostly, but we go smaller if turnout is light.",
-  "Indoor shoes please, keeps the court in good shape 🙏",
+// Standalone follow-ups that read fine without a reply under them.
+const COMMENT_FOLLOWUPS = [
+  "Been meaning to join one of these — adding myself to the list!",
+  "Joined, looking forward to it!",
+  "Count me in for this one 🏐",
+  "Just signed up, first time playing with this group.",
 ];
 
 const REVIEW_COMMENTS = [
@@ -700,15 +715,21 @@ export async function seedEngagement() {
     // has, without needing per-game tuning. (Deliberately NOT clamped to the
     // game's created_at: these games were inserted retroactively with dates in
     // the past, and nothing in the UI exposes games.created_at anyway.)
+    const chatQa = pick(CHAT_QA, g.id + "cq");
+    // Step by 3 through a 10-entry pool (coprime, so 4 picks never repeat) —
+    // picking each independently by hash would sometimes say the same line
+    // twice in one thread.
+    const plBase = hashStr(g.id) % PLAYER_LINES.length;
+    const pl = (n) => PLAYER_LINES[(plBase + n * 3) % PLAYER_LINES.length];
     const beats = [
-      { at: startMs - 12 * DAY, who: "host", pool: HOST_OPENERS },
-      { at: startMs - 8 * DAY, who: "player", pool: PLAYER_LINES },
-      { at: startMs - 5 * DAY, who: "player", pool: PLAYER_LINES },
-      { at: startMs - 4 * DAY, who: "host", pool: HOST_REPLIES },
-      { at: startMs - 2 * DAY, who: "player", pool: PLAYER_LINES },
-      { at: startMs - 1 * DAY, who: "player", pool: PLAYER_LINES },
-      { at: startMs - 5 * 3600000, who: "player", pool: PLAYER_LINES },
-      { at: startMs + 3 * 3600000, who: "host", pool: WRAP_LINES },
+      { at: startMs - 12 * DAY, who: "host", text: pick(HOST_OPENERS, g.id + "0") },
+      { at: startMs - 8 * DAY, who: "player", text: pl(0) },
+      { at: startMs - 5 * DAY, who: "player", text: chatQa.q },
+      { at: startMs - 4 * DAY, who: "host", text: chatQa.a },
+      { at: startMs - 2 * DAY, who: "player", text: pl(1) },
+      { at: startMs - 1 * DAY, who: "player", text: pl(2) },
+      { at: startMs - 5 * 3600000, who: "player", text: pl(3) },
+      { at: startMs + 3 * 3600000, who: "host", text: pick(WRAP_LINES, g.id + "7") },
     ];
     beats.forEach((b, i) => {
       if (b.at > nowMs) return;
@@ -716,15 +737,17 @@ export async function seedEngagement() {
         ? g.host_id
         : others.length ? others[hashStr(g.id + i) % others.length] : g.host_id;
       messages.push([
-        `msg_seed_${g.id}_${i}`, g.id, author, pick(b.pool, g.id + i), iso(b.at),
+        `msg_seed_${g.id}_${i}`, g.id, author, b.text, iso(b.at),
       ]);
     });
 
-    // Public questions on the game page, answered by the host.
+    // Public questions on the game page, answered by the host. The Q and its
+    // answer come from one paired entry so the exchange reads coherently.
+    const qa = pick(COMMENT_QA, g.id + "qa");
     const commentBeats = [
-      { at: startMs - 10 * DAY, who: "player", pool: COMMENT_LINES },
-      { at: startMs - 10 * DAY + 3600000, who: "host", pool: COMMENT_REPLIES },
-      { at: startMs - 6 * DAY, who: "player", pool: COMMENT_LINES },
+      { at: startMs - 10 * DAY, who: "player", text: qa.q },
+      { at: startMs - 10 * DAY + 3600000, who: "host", text: qa.a },
+      { at: startMs - 6 * DAY, who: "player", text: pick(COMMENT_FOLLOWUPS, g.id + "cf") },
     ];
     commentBeats.forEach((b, i) => {
       if (b.at > nowMs) return;
@@ -732,7 +755,7 @@ export async function seedEngagement() {
         ? g.host_id
         : others.length ? others[hashStr(g.id + "c" + i) % others.length] : g.host_id;
       comments.push([
-        `cmt_seed_${g.id}_${i}`, g.id, author, pick(b.pool, g.id + "c" + i), iso(b.at),
+        `cmt_seed_${g.id}_${i}`, g.id, author, b.text, iso(b.at),
       ]);
     });
 
