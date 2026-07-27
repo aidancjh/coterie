@@ -142,6 +142,19 @@ Ordered by priority. Update status inline as these move.
 - Cleanup at launch is unchanged: these rows are demo-account-owned or carry
   `msg_seed_` / `cmt_seed_` / `rev_seed_` id prefixes, so the existing
   "SEED_DEMO=false + delete demo rows" plan (task #3) still covers them.
+  Those prefixes also make the content re-seedable: `DELETE ... WHERE id LIKE
+  'msg_seed_%'` then re-run, which is how the dialogue fix below was applied
+  (ON CONFLICT DO NOTHING means edits never overwrite existing rows).
+- Follow-up fix: questions and answers were drawn from independent pools, so
+  threads produced "Is it indoor shoes only?" → "All levels welcome!". Chat and
+  comments now use paired Q&A entries, and repeated player lines within one
+  thread are avoided by stepping through the pool (coprime stride) instead of
+  hashing each pick independently.
+- **Incident (same day):** removing the created_at floor left two stale
+  `createdMs` references, so `seedEngagement()` threw ReferenceError, `start()`
+  aborted, and production crash-looped until the fix shipped. `node --check`
+  passed — it is a runtime error, not a syntax one. Seed functions are now
+  executed against a real database before deploying, not just parsed.
 
 **"googleform" added as a recognized waitlist channel (2026-07-27):**
 - ✅ Investigated why "Pageviews by source" showed 9 googleform-tagged visits
