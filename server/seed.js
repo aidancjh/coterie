@@ -711,7 +711,7 @@ export async function seedEngagement() {
       { at: startMs + 3 * 3600000, who: "host", pool: WRAP_LINES },
     ];
     beats.forEach((b, i) => {
-      if (b.at > nowMs || b.at < createdMs) return;
+      if (b.at > nowMs) return;
       const author = b.who === "host"
         ? g.host_id
         : others.length ? others[hashStr(g.id + i) % others.length] : g.host_id;
@@ -727,7 +727,7 @@ export async function seedEngagement() {
       { at: startMs - 6 * DAY, who: "player", pool: COMMENT_LINES },
     ];
     commentBeats.forEach((b, i) => {
-      if (b.at > nowMs || b.at < createdMs) return;
+      if (b.at > nowMs) return;
       const author = b.who === "host"
         ? g.host_id
         : others.length ? others[hashStr(g.id + "c" + i) % others.length] : g.host_id;
