@@ -86,14 +86,7 @@ export function RatingHero({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-3">
           <StarRating avg={avg} size="md" />
-          {participationRate != null && (
-            <div className="shrink-0 text-right leading-none">
-              <div className="text-lg font-bold text-slate-50">{participationRate}%</div>
-              <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
-                Participation
-              </div>
-            </div>
-          )}
+          <ParticipationStat rate={participationRate} />
         </div>
         <p className="mt-1.5 text-xs font-medium text-slate-400">
           Player rating · {count} vote{count === 1 ? "" : "s"}
@@ -104,8 +97,14 @@ export function RatingHero({
 }
 
 /** Empty-state rating block — same footprint as RatingHero, shown when a
- * player has no votes yet so every profile has a consistent ratings area. */
-export function RatingEmpty() {
+ * player has no votes yet so every profile has a consistent ratings area.
+ * Still shows participation: reliability is tracked from attendance, so it
+ * exists independently of whether anyone has rated the player yet. */
+export function RatingEmpty({
+  participationRate,
+}: {
+  participationRate?: number | null;
+}) {
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-slate-800 p-4 ring-1 ring-slate-700/60">
       <div className="shrink-0 text-center">
@@ -115,8 +114,38 @@ export function RatingEmpty() {
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <StarRating avg={0} size="lg" />
+        <div className="flex items-center justify-between gap-3">
+          <StarRating avg={0} size="lg" />
+          <ParticipationStat rate={participationRate} muted />
+        </div>
         <p className="mt-1.5 text-xs font-medium text-slate-400">No player ratings yet</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Reliability figure shown to the right of the stars: the share of claimed
+ * slots the player saw through (see getParticipationRate in server/repo.js).
+ * Renders a dash rather than nothing when there's no history, so the block
+ * keeps the same shape on every profile.
+ */
+export function ParticipationStat({
+  rate,
+  muted = false,
+}: {
+  rate?: number | null;
+  muted?: boolean;
+}) {
+  return (
+    <div className="shrink-0 text-right leading-none" title="Share of joined games this player saw through">
+      <div className={`text-lg font-bold ${muted ? "text-slate-300" : "text-slate-50"}`}>
+        {rate == null ? "—" : `${rate}%`}
+      </div>
+      <div
+        className={`mt-0.5 text-[10px] font-semibold uppercase tracking-wide ${muted ? "text-slate-400" : "text-brand"}`}
+      >
+        Participation
       </div>
     </div>
   );

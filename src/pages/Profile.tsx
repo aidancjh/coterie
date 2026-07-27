@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { getUserHighlights } from "../services/gamesService";
 import { api } from "../lib/api";
@@ -18,9 +18,14 @@ import {
   ZapIcon,
 } from "../components/icons";
 
-const skills: SkillLevel[] = ["All Levels", "Low Beginner", "High Beginner", "Low Intermediate", "High Intermediate", "Advanced"];
-const GENDER_OPTIONS = ["Man", "Woman", "Non-binary", "Prefer not to say"];
-const POSITION_OPTIONS = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero", "Defensive Specialist"];
+// Selectable options. Values retired from these lists ("All Levels" as a
+// personal skill, "Non-binary", "Defensive Specialist") are deliberately still
+// accepted by the server and still rendered by the label maps below, so
+// existing profiles that hold them keep displaying correctly — they just can't
+// be newly chosen.
+const skills: SkillLevel[] = ["Low Beginner", "High Beginner", "Low Intermediate", "High Intermediate", "Advanced"];
+const GENDER_OPTIONS = ["Man", "Woman", "Prefer not to say"];
+const POSITION_OPTIONS = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero"];
 
 const POSITION_ABBR: Record<string, string> = {
   "Setter": "SET",
@@ -30,13 +35,6 @@ const POSITION_ABBR: Record<string, string> = {
   "Libero": "LIB",
   "Defensive Specialist": "DS",
 };
-
-// "" = gradient default; hex = solid color
-const BANNER_COLORS = [
-  "#14b8a6", "#eab308", "#22c55e", "#06b6d4",
-  "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899",
-  "#ef4444", "#64748b", "#0f172a",
-];
 
 function computeAge(birthdate: string | null | undefined): number | null {
   if (!birthdate) return null;
@@ -57,139 +55,6 @@ const SKILL_INFO: Record<SkillLevel, { Icon: React.ComponentType<{ className?: s
   Intermediate:         { Icon: ZapIcon, desc: "Comfortable with bumping, setting, serving. Know the rules and rotations." },
   Advanced:             { Icon: TrophyIcon, desc: "Consistent technique. Competitive experience, performs under pressure." },
 };
-
-// ---------------------------------------------------------------------------
-// Banner image cropper (3:1 aspect ratio)
-// ---------------------------------------------------------------------------
-
-function BannerCropper({
-  preview,
-  onDone,
-  onCancel,
-}: {
-  preview: string;
-  onDone: (file: File) => void;
-  onCancel: () => void;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
-  const [applying, setApplying] = useState(false);
-
-  function clamp(ox: number, oy: number, dw: number, dh: number) {
-    const c = containerRef.current;
-    if (!c) return { x: ox, y: oy };
-    return {
-      x: Math.min(0, Math.max(c.offsetWidth - dw, ox)),
-      y: Math.min(0, Math.max(c.offsetHeight - dh, oy)),
-    };
-  }
-
-  const handleImgLoad = useCallback(() => {
-    const img = imgRef.current;
-    const c = containerRef.current;
-    if (!img || !c) return;
-    const scale = Math.max(c.offsetWidth / img.naturalWidth, c.offsetHeight / img.naturalHeight);
-    const dw = Math.round(img.naturalWidth * scale);
-    const dh = Math.round(img.naturalHeight * scale);
-    setImgSize({ w: dw, h: dh });
-    setOffset({ x: Math.round((c.offsetWidth - dw) / 2), y: Math.round((c.offsetHeight - dh) / 2) });
-  }, []);
-
-  function onPointerDown(e: React.PointerEvent) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDragging(true);
-    dragStart.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!dragging) return;
-    setOffset(clamp(
-      dragStart.current.ox + (e.clientX - dragStart.current.x),
-      dragStart.current.oy + (e.clientY - dragStart.current.y),
-      imgSize.w, imgSize.h
-    ));
-  }
-  function onPointerUp() { setDragging(false); }
-
-  async function applyCrop() {
-    const img = imgRef.current;
-    const c = containerRef.current;
-    if (!img || !c) return;
-    setApplying(true);
-    const cw = c.offsetWidth;
-    const ch = c.offsetHeight;
-    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-    const srcX = -offset.x / scale;
-    const srcY = -offset.y / scale;
-    const srcW = cw / scale;
-    const srcH = ch / scale;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1200;
-    canvas.height = 400;
-    const ctx = canvas.getContext("2d")!;
-    const source = new Image();
-    source.src = preview;
-    await new Promise<void>((res) => { source.onload = () => res(); if (source.complete) res(); });
-    ctx.drawImage(source, srcX, srcY, srcW, srcH, 0, 0, 1200, 400);
-    canvas.toBlob((blob) => {
-      if (blob) onDone(new File([blob], "banner.jpg", { type: "image/jpeg" }));
-      setApplying(false);
-    }, "image/jpeg", 0.92);
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      <div className="flex items-center justify-between px-4 py-3">
-        <button onClick={onCancel} className="text-sm text-white/60 hover:text-white">Cancel</button>
-        <p className="text-sm font-semibold text-white">Crop banner</p>
-        <button
-          onClick={applyCrop}
-          disabled={applying || imgSize.w === 0}
-          className="text-sm font-semibold text-brand disabled:opacity-40"
-        >
-          {applying ? "Saving…" : "Use photo"}
-        </button>
-      </div>
-      <p className="mb-3 text-center text-xs text-white/40">Drag to reposition</p>
-
-      {/* 3:1 crop frame */}
-      <div
-        ref={containerRef}
-        className="relative mx-4 overflow-hidden rounded-2xl bg-slate-900"
-        style={{ aspectRatio: "3/1", cursor: dragging ? "grabbing" : "grab", userSelect: "none" }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        {imgSize.w > 0 && (
-          <img
-            ref={imgRef}
-            src={preview}
-            alt="Crop"
-            draggable={false}
-            onLoad={handleImgLoad}
-            className="absolute pointer-events-none"
-            style={{ width: imgSize.w, height: imgSize.h, left: offset.x, top: offset.y }}
-          />
-        )}
-        {imgSize.w === 0 && (
-          <img
-            ref={imgRef}
-            src={preview}
-            alt="Crop"
-            draggable={false}
-            onLoad={handleImgLoad}
-            className="absolute pointer-events-none opacity-0"
-          />
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Highlights grid
@@ -295,14 +160,6 @@ export default function Profile() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [stats, setStats] = useState<{ gamesHosted: number; gamesPlayed: number } | null>(null);
 
-  // Banner customization
-  const [bannerColor, setBannerColor] = useState(user?.bannerColor || "");
-  const [bannerImage, setBannerImage] = useState(user?.bannerImage || "");
-  const [bannerPickerOpen, setBannerPickerOpen] = useState(false);
-  const [bannerUploading, setBannerUploading] = useState(false);
-  const [bannerCropSrc, setBannerCropSrc] = useState("");
-  const bannerFileRef = useRef<HTMLInputElement>(null);
-
   // Edit-mode state
   const [name, setName] = useState(user?.name ?? "");
   const [skill, setSkill] = useState<SkillLevel>(user?.skill ?? "Intermediate");
@@ -328,54 +185,6 @@ export default function Profile() {
         .then(setStats).catch(() => {});
     }
   }, [user?.id]);
-
-  useEffect(() => {
-    setBannerColor(user?.bannerColor || "");
-    setBannerImage(user?.bannerImage || "");
-  }, [user?.bannerColor, user?.bannerImage]);
-
-  // Banner color selection — auto-saves
-  const handleColorSelect = async (color: string) => {
-    setBannerColor(color);
-    setBannerImage("");
-    setBannerPickerOpen(false);
-    try { await updateProfile({ bannerColor: color, bannerImage: "" }); } catch { /* silent */ }
-  };
-
-  // File selected → open cropper
-  const handleBannerFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerCropSrc(URL.createObjectURL(file));
-    if (bannerFileRef.current) bannerFileRef.current.value = "";
-  };
-
-  // Crop confirmed → upload to Cloudinary (signed) → save
-  const handleBannerCropDone = async (file: File) => {
-    setBannerCropSrc("");
-    setBannerPickerOpen(false);
-    setBannerUploading(true);
-    try {
-      const { signature, timestamp, apiKey } = await getUploadSignature();
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("api_key", apiKey);
-      fd.append("timestamp", String(timestamp));
-      fd.append("signature", signature);
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        { method: "POST", body: fd }
-      );
-      const data = await res.json();
-      if (data.secure_url) {
-        const img = data.secure_url;
-        setBannerImage(img);
-        try { await updateProfile({ bannerColor, bannerImage: img }); } catch { /* silent */ }
-      }
-    } catch { /* silent */ } finally {
-      setBannerUploading(false);
-    }
-  };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -414,7 +223,7 @@ export default function Profile() {
         favoritePositions,
       });
       setSaved(true);
-      setTimeout(() => { setSaved(false); setEditing(false); setBannerPickerOpen(false); }, 1200);
+      setTimeout(() => { setSaved(false); setEditing(false); }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile.");
     }
@@ -431,126 +240,49 @@ export default function Profile() {
     setShowGender(user?.showGender !== false);
     setFavoritePositions(user?.favoritePositions ?? []);
     setError("");
-    setBannerPickerOpen(false);
     setEditing(false);
   };
 
   const initials = ((user?.name ?? "Y").trim() || "Y").charAt(0).toUpperCase();
   const displayAvatar = avatarUrl || user?.avatarUrl;
 
-  // "" = gradient (default), hex = solid, bannerImage = photo
-  const bannerStyle = bannerImage
-    ? { backgroundImage: `url(${bannerImage})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : bannerColor
-      ? { backgroundColor: bannerColor }
-      : undefined;
-  const bannerCls = `relative h-24${!bannerStyle ? " bg-gradient-to-br from-brand to-sky-400" : ""}`;
-
   // ── Edit mode ────────────────────────────────────────────────────────────
 
   if (editing) {
     return (
       <div>
-        <div className="mb-4 flex items-center gap-2">
-          <button onClick={handleCancelEdit} className="text-sm font-medium text-slate-400 hover:text-slate-200">
+        {/* Cancel sits hard left, the heading centres in what's left, so the two
+            no longer read as one run-on phrase ("← Cancel Edit profile"). */}
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            onClick={handleCancelEdit}
+            className="shrink-0 text-sm font-medium text-slate-400 transition hover:text-slate-200"
+          >
             ← Cancel
           </button>
-          <h1 className="text-lg font-bold text-white">Edit profile</h1>
+          <h1 className="flex-1 text-center text-lg font-bold text-white">Edit profile</h1>
+          {/* Balances the Cancel button so the heading is optically centred. */}
+          <span aria-hidden className="w-[4.25rem] shrink-0" />
         </div>
 
+        {/* The photo is the point of this control, so nothing is overlaid on
+            top of it — changing it is an explicit button underneath. */}
         <div className="mb-5 flex flex-col items-center">
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand text-3xl font-bold text-white"
-          >
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand text-3xl font-bold text-white">
             {displayAvatar ? (
               <img src={displayAvatar} alt={name} className="h-full w-full object-cover" />
             ) : initials}
-            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
-              {uploading ? (
-                <span className="text-xs font-semibold text-white">…</span>
-              ) : (
-                <CameraIcon className="h-5 w-5 text-white" aria-hidden />
-              )}
-            </div>
-          </button>
-          <p className="mt-1.5 text-xs text-slate-400">Tap to change photo</p>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-        </div>
-
-        {/* Cover / banner — moved here from the profile-view top-right icon, so
-            all editing lives in one place instead of an in-place picker. */}
-        <div className="mb-5">
+          </div>
           <button
             type="button"
-            onClick={() => setBannerPickerOpen((v) => !v)}
-            className={`relative h-20 w-full overflow-hidden rounded-2xl ${!bannerStyle ? "bg-gradient-to-br from-brand to-sky-400" : ""}`}
-            style={bannerStyle ?? undefined}
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-brand/40 hover:text-brand active:scale-95 disabled:opacity-50"
           >
-            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/25 text-xs font-semibold text-white transition hover:bg-black/35">
-              <PencilIcon className="h-3.5 w-3.5" aria-hidden />
-              {bannerPickerOpen ? "Close cover editor" : "Change cover"}
-            </div>
+            <CameraIcon className="h-3.5 w-3.5" aria-hidden />
+            {uploading ? "Uploading…" : "Edit picture"}
           </button>
-
-          {bannerPickerOpen && (
-            <div className="mt-2 rounded-2xl border border-slate-800 bg-slate-800 p-4">
-              {/* Gradient default swatch + color swatches */}
-              <div className="grid grid-cols-6 gap-2.5">
-                {/* Default gradient swatch */}
-                <button
-                  onClick={() => handleColorSelect("")}
-                  className="aspect-square w-full rounded-xl transition active:scale-90"
-                  style={{
-                    background: "linear-gradient(135deg, #d92632, #f4746d)",
-                    outline: !bannerColor && !bannerImage ? "3px solid rgba(255,255,255,0.55)" : "none",
-                    outlineOffset: "2px",
-                  }}
-                  aria-label="Default gradient"
-                />
-                {BANNER_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => handleColorSelect(c)}
-                    className="aspect-square w-full rounded-xl transition active:scale-90"
-                    style={{
-                      backgroundColor: c,
-                      outline: bannerColor === c && !bannerImage ? "3px solid rgba(255,255,255,0.55)" : "none",
-                      outlineOffset: "2px",
-                    }}
-                    aria-label={`Set banner color`}
-                  />
-                ))}
-              </div>
-              <div className="mt-3 border-t border-slate-800 pt-3">
-                <button
-                  onClick={() => bannerFileRef.current?.click()}
-                  disabled={bannerUploading}
-                  className="w-full rounded-xl border border-dashed border-slate-700 py-3 text-sm text-slate-400 transition hover:border-brand/40 hover:text-brand disabled:opacity-50"
-                >
-                  {bannerUploading ? "Uploading…" : "Insert your own image"}
-                </button>
-                {bannerImage && (
-                  <button
-                    onClick={async () => {
-                      setBannerImage("");
-                      try { await updateProfile({ bannerColor, bannerImage: "" }); } catch { /* silent */ }
-                    }}
-                    className="mt-1.5 w-full text-center text-xs text-slate-400 transition hover:text-rose-500"
-                  >
-                    Remove image
-                  </button>
-                )}
-                <input
-                  ref={bannerFileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleBannerFileSelect}
-                />
-              </div>
-            </div>
-          )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
         </div>
 
         <div className="space-y-4">
@@ -578,7 +310,9 @@ export default function Profile() {
             </div>
             {showSkillInfo && (
               <div className="mb-3 space-y-2 rounded-xl border border-slate-800 bg-slate-800 p-3">
-                {(Object.entries(SKILL_INFO) as [SkillLevel, { Icon: React.ComponentType<{ className?: string }>; desc: string }][]).map(([s, { Icon, desc }]) => (
+                {/* Explains the options you can actually pick — SKILL_INFO also
+                    carries retired/legacy levels purely so old profiles render. */}
+                {skills.map((s) => ({ s, ...SKILL_INFO[s] })).map(({ s, Icon, desc }) => (
                   <div key={s} className="flex gap-2 text-sm">
                     <IconChip size="sm">
                       <Icon className="h-4 w-4" />
@@ -659,16 +393,6 @@ export default function Profile() {
           </button>
         </div>
 
-        {/* Cover-photo cropper — the cover picker above now lives in this
-            branch, so its cropper modal must too (it used to only render in
-            the view-mode branch below, which never mounts while editing). */}
-        {bannerCropSrc && (
-          <BannerCropper
-            preview={bannerCropSrc}
-            onDone={handleBannerCropDone}
-            onCancel={() => setBannerCropSrc("")}
-          />
-        )}
       </div>
     );
   }
@@ -680,20 +404,21 @@ export default function Profile() {
       {/* Profile card */}
       <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-sm">
 
-        {/* Banner */}
-        <div className={bannerCls} style={bannerStyle ?? undefined}>
-          <button
-            onClick={() => setEditing(true)}
-            className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/25 text-white transition hover:bg-black/40 active:scale-90"
-            aria-label="Edit profile"
-          >
-            <PencilIcon className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
+        <div className="px-4 pb-5 pt-4">
+          {/* Edit — a labelled control, not a bare icon: an unlabelled pencil
+              on its own left people unsure what it edits. */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-brand/40 hover:text-brand active:scale-95"
+            >
+              <PencilIcon className="h-3.5 w-3.5" aria-hidden />
+              Edit profile
+            </button>
+          </div>
 
-        <div className="px-4 pb-5">
-          {/* Avatar — centered, overlapping banner (z-10 keeps it above the banner) */}
-          <div className="relative z-10 -mt-12 flex justify-center">
+          {/* Avatar — centered */}
+          <div className="flex justify-center">
             <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand text-3xl font-bold text-white ring-4 ring-slate-900">
               {displayAvatar ? (
                 <img src={displayAvatar} alt={user?.name} className="h-full w-full object-cover" />
@@ -731,7 +456,7 @@ export default function Profile() {
             {user?.playerRating && user.playerRating.count > 0 ? (
               <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} participationRate={user.participationRate} />
             ) : (
-              <RatingEmpty />
+              <RatingEmpty participationRate={user?.participationRate} />
             )}
           </div>
 
@@ -772,14 +497,6 @@ export default function Profile() {
       {/* Highlights — the user's own clips, posted from here */}
       <HighlightGrid highlights={highlights} />
 
-      {/* Banner image cropper modal */}
-      {bannerCropSrc && (
-        <BannerCropper
-          preview={bannerCropSrc}
-          onDone={handleBannerCropDone}
-          onCancel={() => setBannerCropSrc("")}
-        />
-      )}
     </div>
   );
 }

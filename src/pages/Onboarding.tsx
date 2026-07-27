@@ -7,12 +7,13 @@ import {
   IconChip,
   LeafIcon,
   TrophyIcon,
-  UsersIcon,
   ZapIcon,
 } from "../components/icons";
 import { Logo } from "../components/Logo";
 
-const GENDER_OPTIONS = ["Man", "Woman", "Non-binary", "Prefer not to say"];
+// Matches the Edit-profile options — retired values stay server-accepted for
+// existing accounts but are no longer offered to new ones.
+const GENDER_OPTIONS = ["Man", "Woman", "Prefer not to say"];
 
 const SKILL_CARDS: {
   level: SkillLevel;
@@ -20,16 +21,6 @@ const SKILL_CARDS: {
   tagline: string;
   bullets: string[];
 }[] = [
-  {
-    level: "All Levels",
-    Icon: UsersIcon,
-    tagline: "Just here to play",
-    bullets: [
-      "Happy in any game at any pace",
-      "Skill level doesn't matter to you",
-      "The more the merrier!",
-    ],
-  },
   {
     level: "Low Beginner",
     Icon: LeafIcon,

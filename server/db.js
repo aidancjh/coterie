@@ -131,6 +131,24 @@ export async function initSchema() {
       PRIMARY KEY (game_id, user_id)
     );
 
+    -- Departure history. leaveGame() DELETEs the game_members row, so without
+    -- this there is no record that someone ever claimed a slot and dropped —
+    -- which is exactly what the participation rate needs. Every leave is
+    -- recorded (not just late ones) so the "what counts as a bail" threshold
+    -- can change later without having lost the underlying data.
+    -- One row per (game, user): leaving, rejoining and leaving again is still
+    -- one unreliable episode, and the late flag latches true so it cannot be
+    -- cleared by a later early exit.
+    CREATE TABLE IF NOT EXISTS game_dropouts (
+      game_id      TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      left_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      hours_before DOUBLE PRECISION,
+      late         BOOLEAN NOT NULL DEFAULT FALSE,
+      PRIMARY KEY (game_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_dropouts_user ON game_dropouts(user_id, late);
+
     CREATE TABLE IF NOT EXISTS game_comments (
       id         TEXT PRIMARY KEY,
       game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,

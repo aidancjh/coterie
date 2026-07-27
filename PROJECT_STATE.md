@@ -116,6 +116,45 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Real participation rate + profile UI cleanup (2026-07-27):**
+- ✅ **Participation % is now real.** It was a placeholder (`80 + played +
+  hosted*2`) that could only ever rise. `leaveGame()` DELETEs the membership
+  row, so nothing recorded that a player had ever claimed a slot — new
+  `game_dropouts` table (`server/db.js`) captures every departure with
+  `hours_before` and a latching `late` flag. Rate =
+  attended / (attended + late bails), null until there's history
+  (`getParticipationRate` in `server/repo.js`).
+- **Decision:** only leaving within **24 h** of start counts against you
+  (`LATE_LEAVE_HOURS`). Aidan's call — penalising early leaves would just push
+  people to no-show instead of freeing the slot. Every leave is still recorded
+  regardless, so the threshold can change later without data loss. Hosts
+  leaving their own game are never counted.
+- ✅ Shown beside the stars on **both** own and other users' profiles, including
+  when the player has no rating votes yet — new `ParticipationStat` in
+  `Badges.tsx`, and `RatingEmpty` now takes `participationRate` (reliability is
+  attendance-derived, so it exists independently of ratings). Renders "—" when
+  there's no history so the block keeps its shape.
+- ✅ **Cover/banner feature deleted** — `BANNER_COLORS`, the `BannerCropper`
+  component, all banner state/handlers and the profile-card banner strip are
+  gone (Profile.tsx 779 → 502 lines). The `banner_color` / `banner_image`
+  columns and their API fields are left in place: harmless, and dropping them
+  is a destructive migration for no user-visible gain.
+- ✅ Profile view: bare pencil icon → labelled **"Edit profile"** pill.
+- ✅ Edit profile: Cancel/heading no longer read as one run-on phrase (heading
+  centred with a spacer); the camera overlay that covered the whole avatar is
+  replaced by an **"Edit picture"** button underneath, so the photo is actually
+  visible; "Tap to change photo" removed.
+- ✅ Retired options: **All Levels** (personal skill), **Non-binary**,
+  **Defensive Specialist** — removed from Profile *and* Onboarding pickers. The
+  server allowlists (`validation.js`) and the label/abbreviation maps
+  deliberately still carry them so existing profiles keep rendering; they just
+  can't be newly selected. The skill "?" explainer now lists only selectable
+  levels instead of every `SKILL_INFO` key.
+- ✅ `.claude/launch.json`: the `api` entry pointed at a hardcoded
+  `C:\Users\ebonwhale\...` path from the other machine; now relative so it
+  resolves on both.
+- Mirrored into `coterie-prototype` (see §"Preview fork sync" below).
+
 **Demo engagement data — rosters, chat, comments, reviews (2026-07-27):**
 - Problem: the app read as empty. 75 of 92 games had only the host on the
   roster, `game_comments` and `game_interest` were 0 rows, `messages` was 5,

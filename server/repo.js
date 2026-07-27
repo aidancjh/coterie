@@ -65,6 +65,56 @@ function computeAge(birthdate) {
   return age >= 0 ? age : null;
 }
 
+// Dropping out inside this window counts as a bail: too late for the host to
+// realistically refill the slot. Leaving earlier is free — it's the responsible
+// thing to do, and penalising it would push people to no-show instead.
+const LATE_LEAVE_HOURS = 24;
+
+/**
+ * Hours between now and a game's start, or null if the game has no usable
+ * date/time. Negative once the game has already started.
+ */
+function hoursUntilStart(game) {
+  if (!game || !game.date) return null;
+  const startMs = new Date(`${game.date}T${game.time || "00:00"}:00Z`).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  return (startMs - Date.now()) / 3600000;
+}
+
+/**
+ * Share of claimed slots the player actually saw through, as a whole percent.
+ *
+ * attended = games they were still on the roster for once the game had passed
+ * bailed   = games they dropped out of inside the LATE_LEAVE_HOURS window
+ *
+ * Returns null when there's no history yet, so profiles show "—" rather than a
+ * meaningless 0% or 100% off a single data point.
+ */
+async function getParticipationRate(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const attended = Number(
+    (
+      await query(
+        `SELECT COUNT(*) AS c FROM game_members gm
+           JOIN games g ON g.id = gm.game_id
+          WHERE gm.user_id = $1 AND gm.status = 'player' AND g.date < $2`,
+        [userId, today]
+      )
+    ).rows[0].c
+  );
+  const bailed = Number(
+    (
+      await query(
+        "SELECT COUNT(*) AS c FROM game_dropouts WHERE user_id = $1 AND late = TRUE",
+        [userId]
+      )
+    ).rows[0].c
+  );
+  const total = attended + bailed;
+  if (total === 0) return null;
+  return Math.round((attended / total) * 100);
+}
+
 /** Public profile of any user: basic info + participation stats. */
 export async function getUserProfile(userId) {
   const u = await findUserById(userId);
@@ -89,11 +139,9 @@ export async function getUserProfile(userId) {
   const hostedUpcoming = await serializeGames(rows);
   const age = computeAge(u.birthdate);
   const rating = await getPlayerRating(userId);
-  // Participation rate — a simple engagement heuristic: how reliably the player
-  // turns up, scaled by how active they are. Grows with games played/hosted and
-  // is capped at 99%. Null until they've played at least one game.
-  const participationRate =
-    played > 0 ? Math.min(99, 80 + played + hosted * 2) : null;
+  // Real reliability: completed games kept vs. slots bailed on late. Replaces
+  // an earlier placeholder (80 + played + hosted*2) that could only ever go up.
+  const participationRate = await getParticipationRate(userId);
   return {
     id: u.id,
     name: u.name,
@@ -913,6 +961,25 @@ export async function leaveGame(gameId, userId) {
   // slot is filled atomically (no double-promotion under concurrent leaves).
   const promoted = await withTransaction(async (client) => {
     await client.query("SELECT 1 FROM games WHERE id = $1 FOR UPDATE", [gameId]);
+    // Record the departure BEFORE deleting the membership — once the row is
+    // gone there's nothing left to say this person ever held a slot. Only
+    // counts against players, never the host leaving their own game.
+    const { rowCount: wasMember } = await client.query(
+      "SELECT 1 FROM game_members WHERE game_id = $1 AND user_id = $2 AND status = 'player'",
+      [gameId, userId]
+    );
+    if (wasMember > 0 && userId !== game.host_id) {
+      const hoursBefore = hoursUntilStart(game);
+      await client.query(
+        `INSERT INTO game_dropouts (game_id, user_id, left_at, hours_before, late)
+         VALUES ($1, $2, NOW(), $3, $4)
+         ON CONFLICT (game_id, user_id) DO UPDATE SET
+           left_at = EXCLUDED.left_at,
+           hours_before = EXCLUDED.hours_before,
+           late = game_dropouts.late OR EXCLUDED.late`,
+        [gameId, userId, hoursBefore, hoursBefore !== null && hoursBefore < LATE_LEAVE_HOURS]
+      );
+    }
     await client.query(
       "DELETE FROM game_members WHERE game_id = $1 AND user_id = $2",
       [gameId, userId]

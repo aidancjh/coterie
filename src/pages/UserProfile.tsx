@@ -137,7 +137,7 @@ export default function UserProfile() {
             {rating && rating.count > 0 ? (
               <RatingHero avg={rating.avg ?? 0} count={rating.count} participationRate={profile.participationRate} />
             ) : (
-              <RatingEmpty />
+              <RatingEmpty participationRate={profile.participationRate} />
             )}
           </div>
 
