@@ -116,6 +116,20 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Profile edit entry point consolidated to the cover-photo pencil icon (2026-07-27):**
+- ✅ `src/pages/Profile.tsx`: the full-width red "Edit profile" button below the
+  skill badge is gone. The pencil icon top-right on the cover photo (which used
+  to toggle an in-place banner color/image picker) now opens the same full
+  edit screen the button used to. The banner color/photo picker itself moved
+  into that edit screen (new "Change cover" toggle right below the avatar
+  upload) so it's still reachable, just consolidated into one place instead of
+  two separate editing surfaces.
+- Bug caught and fixed during the move: the cover-photo cropper modal
+  (`BannerCropper`) only rendered in the view-mode JSX branch. Since edit mode
+  is an early `return` before that branch, moving the cover picker into edit
+  mode without also moving the cropper would have made "Insert your own image"
+  silently do nothing while editing. Cropper now renders in both branches.
+
 **Per-video waitlist tracking in the admin dashboard (2026-07-27):**
 - ✅ Signups by video is now authoritative in the DB, mirroring the existing
   signups-by-source pattern: `waitlist.campaign` column (`server/db.js`),
