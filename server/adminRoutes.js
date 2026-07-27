@@ -104,8 +104,9 @@ router.delete(
 router.post(
   "/seed-past-data",
   h(async (req, res) => {
-    const { seedPastData } = await import("./seed.js");
+    const { seedPastData, seedEngagement } = await import("./seed.js");
     await seedPastData();
+    await seedEngagement();
     await repo.logAdminAction(req.userId, "seed_past_data", "Ran: seed past data");
     res.json({ ok: true });
   })

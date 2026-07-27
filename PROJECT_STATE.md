@@ -116,6 +116,33 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Demo engagement data — rosters, chat, comments, reviews (2026-07-27):**
+- Problem: the app read as empty. 75 of 92 games had only the host on the
+  roster, `game_comments` and `game_interest` were 0 rows, `messages` was 5,
+  `game_reviews` 13, and all 29 demo accounts shared one "member since" date
+  (2026-06-13) because they were inserted in a single seeding run.
+- ✅ New `seedEngagement()` in `server/seed.js`, called from `start()` after
+  `seedPastData()` and from the admin `POST /api/admin/seed-past-data`. It
+  reads whatever demo-hosted games exist rather than listing them statically —
+  most games have random ids and can't be hardcoded. Idempotent (row ids
+  derived from game id + index) and deterministic (content picked by hashing
+  that id), so re-running on every boot inserts nothing new and never reshuffles.
+- ✅ What it fills: roster spots to 50-90% of each game's slots (~618),
+  pre-game chat threads that build over the days before a game plus a wrap-up
+  after (~612), public Q&A comments (~261), host reviews from ~2/3 of players
+  on finished games (~349), and stars on upcoming games (~16). Demo
+  `created_at` backdated 6-20 months (staggered per account) so profiles show
+  real tenure.
+- ✅ Message/comment/review authors are restricted to `@demo.test` accounts.
+  Three real testers are members of demo-hosted games — authoring invented
+  chat or reviews in their names would be misattribution, so `demoSet`
+  filters them out of the author pool (they can still be on the roster).
+- Timestamps that would land in the future are skipped, so far-off games are
+  naturally quiet and past games have full threads — no per-game tuning.
+- Cleanup at launch is unchanged: these rows are demo-account-owned or carry
+  `msg_seed_` / `cmt_seed_` / `rev_seed_` id prefixes, so the existing
+  "SEED_DEMO=false + delete demo rows" plan (task #3) still covers them.
+
 **"googleform" added as a recognized waitlist channel (2026-07-27):**
 - ✅ Investigated why "Pageviews by source" showed 9 googleform-tagged visits
   but "Signups by source" showed 0: `WAITLIST_SOURCES` (`server/index.js`)

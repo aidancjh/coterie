@@ -491,3 +491,286 @@ export async function seedPastData() {
     `${pastReviews.length} host reviews, ${pastPlayerRatings.length + demoShowcaseRatings.length} player ratings`
   );
 }
+
+// ---------------------------------------------------------------------------
+// Engagement data — chat, comments, reviews, stars
+//
+// The tables above only cover the hand-written games declared in this file.
+// Most games in the DB are generated with random ids, so they can't be listed
+// here statically — this section reads whatever demo-hosted games actually
+// exist and fills their chat/comments/reviews. That's what makes profiles read
+// as "active for a long time" rather than freshly seeded.
+//
+// Idempotent: every row id is derived from (game id + index), so re-running
+// inserts nothing new. Deterministic: content is chosen by hashing that same
+// id, so a given game always gets the same conversation.
+// ---------------------------------------------------------------------------
+
+const DEMO_HOST_IDS = ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"];
+
+/** Stable 32-bit hash — same string always picks the same pool entry. */
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0);
+}
+const pick = (arr, key) => arr[hashStr(key) % arr.length];
+
+// Chat opens with the host, then players reply. Kept generic (no venue/date
+// specifics) so one pool reads naturally on any game.
+const HOST_OPENERS = [
+  "Court's confirmed! See everyone there 🏐",
+  "All set for this one. Bring a light and a dark shirt if you have both.",
+  "Booked and paid. Shout if you can't make it so I can free the slot.",
+  "We're on! Warmup starts 10 min before, don't be shy if you're early.",
+  "Nets are sorted. Looking forward to this one 🙌",
+];
+const PLAYER_LINES = [
+  "Nice, count me in!",
+  "Just booked my Grab, should be there 10 min early.",
+  "Anyone coming from the east side? Happy to carpool.",
+  "First time at this venue — is parking easy?",
+  "Bringing a friend if there's still a slot going.",
+  "Can't wait, been looking forward to this all week.",
+  "Do we need to bring our own ball or is it provided?",
+  "Might be 5 min late, coming straight from work 🙏",
+  "Weather's looking good for once!",
+  "I'll bring an extra ball just in case.",
+  "Great session last time, hoping for the same crowd.",
+  "Is there a water cooler there or should I pack my own?",
+];
+const HOST_REPLIES = [
+  "Parking's easy, plenty of space on the ground floor.",
+  "Balls are provided, just bring yourself 👍",
+  "No worries, we'll be warming up anyway.",
+  "Yes there's still room, bring them along!",
+  "Water cooler's on site but pack a bottle to be safe.",
+];
+const WRAP_LINES = [
+  "Great games today everyone, same time next week? 🏐",
+  "Thanks for coming out, that last set was unreal.",
+  "Good session! Someone left a black water bottle, I've got it.",
+  "That was a fun one. See you all at the next.",
+  "Solid turnout today, appreciate everyone showing up on time.",
+];
+
+// Comments are public (pre-join questions), so they read differently to chat.
+const COMMENT_LINES = [
+  "Is this beginner friendly or more competitive?",
+  "Any slots left for a +1?",
+  "What's the parking situation like?",
+  "Do you usually play 6v6 or rotate smaller teams?",
+  "Been meaning to join one of these — adding myself to the list!",
+  "Is it indoor shoes only?",
+];
+const COMMENT_REPLIES = [
+  "All levels welcome, we rotate so everyone gets court time!",
+  "Yep, a couple of spots free — grab them while they last.",
+  "Parking's right next to the hall, never had an issue.",
+  "6v6 mostly, but we go smaller if turnout is light.",
+  "Indoor shoes please, keeps the court in good shape 🙏",
+];
+
+const REVIEW_COMMENTS = [
+  "Really well organised, started right on time.",
+  "Great host — clear comms and a friendly crowd.",
+  "Good mix of skill levels, everyone got plenty of court time.",
+  "Smooth session from start to finish. Would join again.",
+  "Court was booked properly and the rotations were fair.",
+  "Welcoming vibe, easy to slot in even as a newcomer.",
+  "Really enjoyed this one, great energy throughout.",
+  "Solid session. Host kept things moving nicely.",
+];
+
+/** Chunked multi-row INSERT — keeps startup to a few queries, not thousands. */
+async function bulkInsert(table, columns, rows, conflict) {
+  if (rows.length === 0) return 0;
+  const CHUNK = 200;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const values = chunk
+      .map((_, r) => `(${columns.map((_, c) => `$${r * columns.length + c + 1}`).join(", ")})`)
+      .join(", ");
+    const { rowCount } = await query(
+      `INSERT INTO ${table} (${columns.join(", ")}) VALUES ${values} ${conflict}`,
+      chunk.flat()
+    );
+    inserted += rowCount;
+  }
+  return inserted;
+}
+
+/**
+ * Fills chat, comments, host reviews and stars across every demo-hosted game.
+ * Runs on every startup after seedPastData(); safe to re-run.
+ */
+export async function seedEngagement() {
+  const nowMs = Date.now();
+  const iso = (ms) => new Date(ms).toISOString();
+  const DAY = 86400000;
+
+  // 1. Backdate demo tenure. Everything was created in one seeding run, so all
+  // 29 accounts share a "member since" date — which reads as a brand-new app.
+  // Spread them 6-20 months back instead, deterministic by index so the dates
+  // don't drift on every boot. Only touches accounts still on the original
+  // seeded timestamp, so a manual edit later isn't overwritten.
+  const { rows: demoRows } = await query(
+    "SELECT id FROM users WHERE email LIKE '%@demo.test' ORDER BY id"
+  );
+  for (let i = 0; i < demoRows.length; i++) {
+    const monthsBack = 6 + ((hashStr(demoRows[i].id) % 15)); // 6-20 months
+    const jitterDays = hashStr(demoRows[i].id + "d") % 28;
+    const created = iso(nowMs - monthsBack * 30 * DAY - jitterDays * DAY);
+    await query(
+      "UPDATE users SET created_at = $1 WHERE id = $2 AND created_at > $1",
+      [created, demoRows[i].id]
+    );
+  }
+
+  // 2. Fill rosters. Most demo games were created with only the host on them,
+  // which makes every game read as "nobody joined" AND starves everything
+  // below — an empty roster means no one to chat, no one to review the host.
+  // Fill each to 50-90% of its slots (never over) with demo accounts.
+  const { rows: allDemo } = await query(
+    "SELECT id FROM users WHERE email LIKE '%@demo.test' ORDER BY id"
+  );
+  const demoIds = allDemo.map((r) => r.id);
+  const demoSet = new Set(demoIds);
+  const { rows: rosters } = await query(
+    `SELECT g.id, g.host_id, g.total_slots,
+            COALESCE(array_agg(gm.user_id) FILTER (WHERE gm.user_id IS NOT NULL), '{}') AS members,
+            COALESCE(MAX(gm.seq), -1) AS max_seq
+       FROM games g
+       LEFT JOIN game_members gm ON gm.game_id = g.id
+      WHERE g.host_id = ANY($1)
+      GROUP BY g.id`,
+    [DEMO_HOST_IDS]
+  );
+  const newMembers = [];
+  for (const g of rosters) {
+    const members = g.members || [];
+    const fillFrac = 0.5 + (hashStr(g.id + "f") % 41) / 100; // 0.50-0.90
+    const target = Math.min(g.total_slots, Math.round(g.total_slots * fillFrac));
+    const need = target - members.length;
+    if (need <= 0) continue;
+    // Deterministic per-game ordering so the same players always land here.
+    const candidates = demoIds
+      .filter((u) => !members.includes(u))
+      .sort((a, b) => hashStr(g.id + a) - hashStr(g.id + b));
+    candidates.slice(0, need).forEach((uid, i) => {
+      newMembers.push([g.id, uid, "player", Number(g.max_seq) + 1 + i]);
+    });
+  }
+  const mem = await bulkInsert("game_members", ["game_id", "user_id", "status", "seq"],
+    newMembers, "ON CONFLICT DO NOTHING");
+
+  // 3. Re-read with the filled rosters so chat/reviews below use real players.
+  const { rows: games } = await query(
+    `SELECT g.id, g.host_id, g.date, g.time,
+            array_agg(gm.user_id ORDER BY gm.seq) AS members
+       FROM games g
+       JOIN game_members gm ON gm.game_id = g.id
+      WHERE g.host_id = ANY($1)
+      GROUP BY g.id`,
+    [DEMO_HOST_IDS]
+  );
+
+  const messages = [];
+  const comments = [];
+  const reviews = [];
+  const interest = [];
+
+  for (const g of games) {
+    const members = (g.members || []).filter(Boolean);
+    if (members.length === 0) continue;
+    // Authors are demo accounts ONLY. Real testers do join these games, and
+    // putting invented chat messages or host reviews in a real person's name
+    // would be misattribution, not seed data.
+    const others = members.filter((m) => m !== g.host_id && demoSet.has(m));
+    const startMs = new Date(`${g.date}T${(g.time || "18:00")}:00Z`).getTime();
+    if (!Number.isFinite(startMs)) continue;
+
+    // Chatter builds in the days before the game, then a wrap-up after it.
+    // Anything that would land in the future is skipped, so far-off games are
+    // quiet and past games have full threads — the same shape real activity
+    // has, without needing per-game tuning. (Deliberately NOT clamped to the
+    // game's created_at: these games were inserted retroactively with dates in
+    // the past, and nothing in the UI exposes games.created_at anyway.)
+    const beats = [
+      { at: startMs - 12 * DAY, who: "host", pool: HOST_OPENERS },
+      { at: startMs - 8 * DAY, who: "player", pool: PLAYER_LINES },
+      { at: startMs - 5 * DAY, who: "player", pool: PLAYER_LINES },
+      { at: startMs - 4 * DAY, who: "host", pool: HOST_REPLIES },
+      { at: startMs - 2 * DAY, who: "player", pool: PLAYER_LINES },
+      { at: startMs - 1 * DAY, who: "player", pool: PLAYER_LINES },
+      { at: startMs - 5 * 3600000, who: "player", pool: PLAYER_LINES },
+      { at: startMs + 3 * 3600000, who: "host", pool: WRAP_LINES },
+    ];
+    beats.forEach((b, i) => {
+      if (b.at > nowMs || b.at < createdMs) return;
+      const author = b.who === "host"
+        ? g.host_id
+        : others.length ? others[hashStr(g.id + i) % others.length] : g.host_id;
+      messages.push([
+        `msg_seed_${g.id}_${i}`, g.id, author, pick(b.pool, g.id + i), iso(b.at),
+      ]);
+    });
+
+    // Public questions on the game page, answered by the host.
+    const commentBeats = [
+      { at: startMs - 10 * DAY, who: "player", pool: COMMENT_LINES },
+      { at: startMs - 10 * DAY + 3600000, who: "host", pool: COMMENT_REPLIES },
+      { at: startMs - 6 * DAY, who: "player", pool: COMMENT_LINES },
+    ];
+    commentBeats.forEach((b, i) => {
+      if (b.at > nowMs || b.at < createdMs) return;
+      const author = b.who === "host"
+        ? g.host_id
+        : others.length ? others[hashStr(g.id + "c" + i) % others.length] : g.host_id;
+      comments.push([
+        `cmt_seed_${g.id}_${i}`, g.id, author, pick(b.pool, g.id + "c" + i), iso(b.at),
+      ]);
+    });
+
+    // Host reviews — only for games that have actually finished, and only from
+    // players (never the host reviewing themselves). About two thirds of the
+    // roster leaves one, which is generous but not implausible.
+    if (startMs < nowMs) {
+      others.forEach((uid, i) => {
+        if (hashStr(g.id + uid) % 3 === 0) return; // ~1 in 3 doesn't review
+        const rating = hashStr(uid + g.id) % 5 === 0 ? 4 : 5;
+        reviews.push([
+          `rev_seed_${g.id}_${i}`, g.id, uid, g.host_id, rating,
+          pick(REVIEW_COMMENTS, g.id + uid), iso(startMs + 6 * 3600000),
+        ]);
+      });
+    } else {
+      // Upcoming games get starred by demo users who aren't already playing.
+      DEMO_HOST_IDS.filter((u) => !members.includes(u)).forEach((uid) => {
+        if (hashStr(g.id + uid + "i") % 3 !== 0) return;
+        interest.push([g.id, uid]);
+      });
+    }
+  }
+
+  const m = await bulkInsert("messages", ["id", "game_id", "user_id", "body", "created_at"],
+    messages, "ON CONFLICT (id) DO NOTHING");
+  const c = await bulkInsert("game_comments", ["id", "game_id", "user_id", "body", "created_at"],
+    comments, "ON CONFLICT (id) DO NOTHING");
+  const r = await bulkInsert("game_reviews",
+    ["id", "game_id", "reviewer_id", "host_id", "rating", "comment", "created_at"],
+    reviews, "ON CONFLICT (game_id, reviewer_id) DO NOTHING");
+  const s = await bulkInsert("game_interest", ["game_id", "user_id"],
+    interest, "ON CONFLICT DO NOTHING");
+
+  if (mem + m + c + r + s > 0) {
+    console.log(
+      `[seed] seedEngagement: +${mem} roster spots, +${m} messages, ` +
+      `+${c} comments, +${r} reviews, +${s} stars`
+    );
+  }
+}
