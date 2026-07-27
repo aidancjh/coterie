@@ -116,6 +116,22 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**"googleform" added as a recognized waitlist channel (2026-07-27):**
+- ✅ Investigated why "Pageviews by source" showed 9 googleform-tagged visits
+  but "Signups by source" showed 0: `WAITLIST_SOURCES` (`server/index.js`)
+  never included `googleform`, so `normaliseWaitlistSource` silently collapsed
+  any real googleform-attributed signup into the generic "Other" bucket
+  (2 signups, all time), discarding the original tag. Cross-referencing the 2
+  "Other" signups' timestamps against PostHog's googleform-tagged pageviews
+  found both landed 5-7 seconds after one — strong evidence both were real
+  googleform signups that got miscategorized, not a broken event.
+- ✅ Fixed going forward: `googleform` added to `WAITLIST_SOURCES` (server) and
+  `SOURCE_LABELS` ("Google Form", `src/admin/pages/Funnel.tsx`), so future
+  signups from that link show up as their own row.
+- Decided NOT to backfill the 2 historical "Other" rows — the timing match is
+  strong circumstantial evidence but not certain, and Aidan chose to leave
+  history as-is rather than rewrite stored signup data on that basis.
+
 **Profile edit entry point consolidated to the cover-photo pencil icon (2026-07-27):**
 - ✅ `src/pages/Profile.tsx`: the full-width red "Edit profile" button below the
   skill badge is gone. The pencil icon top-right on the cover photo (which used

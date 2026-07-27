@@ -36,6 +36,7 @@ const SOURCE_LABELS: Record<string, string> = {
   reddit: "Reddit",
   telegram: "Telegram",
   whatsapp: "WhatsApp",
+  googleform: "Google Form",
   direct: "Direct / untagged",
   other: "Other",
   test: "Test (excluded)",

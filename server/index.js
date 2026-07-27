@@ -1161,7 +1161,7 @@ if (fs.existsSync(path.join(distDir, "index.html"))) {
 // these; anything unrecognised becomes 'other' and a missing tag is 'direct'.
 // 'test' is our private label for self-testing — excluded from the % breakdown.
 const WAITLIST_SOURCES = new Set([
-  "instagram", "tiktok", "youtube", "reddit", "telegram", "whatsapp", "test",
+  "instagram", "tiktok", "youtube", "reddit", "telegram", "whatsapp", "googleform", "test",
 ]);
 
 function normaliseWaitlistSource(raw) {
