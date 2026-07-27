@@ -1172,7 +1172,7 @@ function normaliseWaitlistSource(raw) {
 }
 
 app.post("/api/waitlist", waitlistLimiter, async (req, res) => {
-  const { email, name, company, source } = req.body || {};
+  const { email, name, company, source, campaign } = req.body || {};
   // Honeypot: the hidden "company" field is invisible to humans. Bots that
   // auto-fill every input set it — silently accept (don't reveal the trap) and
   // drop the request without writing anything.
@@ -1185,7 +1185,10 @@ app.post("/api/waitlist", waitlistLimiter, async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return res.status(400).json({ error: "Invalid email address." });
   const safeName = typeof name === "string" ? name.slice(0, 100) : "";
   const safeSource = normaliseWaitlistSource(source);
-  const result = await repo.addWaitlistEntry(trimmed, safeName, safeSource);
+  // Freeform, unlike source — any number of videos can be posted over time, so
+  // there's no fixed allowlist to normalise against. Just cap length.
+  const safeCampaign = typeof campaign === "string" ? campaign.trim().slice(0, 60) : "";
+  const result = await repo.addWaitlistEntry(trimmed, safeName, safeSource, safeCampaign);
   if (result.alreadyExists) return res.json({ ok: true, message: "You're already on the list — we'll be in touch!" });
   res.json({ ok: true, message: "You're on the list! We'll let you know when Coterie launches in Singapore." });
 });

@@ -110,6 +110,14 @@ export default function WaitlistDesktop() {
         ? ""
         : new URLSearchParams(window.location.search).get("utm_source") || "";
   }
+  // Same idea, for ?utm_campaign= (which video). Freeform — no allowlist.
+  const campaignRef = useRef<string | null>(null);
+  if (campaignRef.current === null) {
+    campaignRef.current =
+      typeof window === "undefined"
+        ? ""
+        : new URLSearchParams(window.location.search).get("utm_campaign") || "";
+  }
 
   // Initialize PostHog, then clean the URL. Order matters: PostHog captures the
   // pageview (reading utm_source off the live URL) asynchronously after its CDN
@@ -257,7 +265,7 @@ export default function WaitlistDesktop() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, company, source: sourceRef.current }),
+        body: JSON.stringify({ email, company, source: sourceRef.current, campaign: campaignRef.current }),
       });
       const data = await res.json();
       if (!res.ok) {

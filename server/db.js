@@ -428,6 +428,13 @@ export async function initSchema() {
   await pool.query(
     "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'direct'"
   );
+  // Attribution: which video/post drove the signup (utm_campaign captured at
+  // submit time, same free-text value PostHog's `video` super property uses —
+  // see src/lib/posthog.ts). '' = no tag. Freeform, unlike `source`, since any
+  // number of videos can be posted over time.
+  await pool.query(
+    "ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS campaign TEXT NOT NULL DEFAULT ''"
+  );
 
   // Feature: recurring games are linked by a shared series_id so a host can
   // cancel/edit all future occurrences at once. NULL for one-off games.

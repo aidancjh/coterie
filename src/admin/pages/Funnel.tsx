@@ -20,7 +20,9 @@ interface WaitlistFunnel {
   startedRate: number;
   submittedRate: number;
   bySource: WaitlistSourceStat[];
+  byCampaign: WaitlistSourceStat[];
   visitsBySource: WaitlistSourceStat[];
+  visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
   visitsByDay: WaitlistDayStat[];
   posthogError: string | null;
@@ -408,6 +410,20 @@ export default function Funnel() {
           pageviews carry no reliable source tag at all. */}
       <Card title="Pageviews by source (since tracking fix)">
         <SourceBarChart rows={data.visitsBySource} emptyText="No visits recorded yet." />
+      </Card>
+
+      {/* 6. Signups by video — our own DB (utm_campaign, captured on submit
+          same as source), exact and immune to ad blockers. */}
+      <Card title="Signups by video (all time)">
+        <SourceBarChart rows={data.byCampaign} emptyText="No signups yet." />
+      </Card>
+
+      {/* 7. Pageviews by video — PostHog, grouped by the `video` super property
+          (registered from utm_campaign, src/lib/posthog.ts). The only source
+          for video-level visit counts, since the waitlist page never hits our
+          own API. Same SINCE_UTM_FIX cutoff as pageviews by source. */}
+      <Card title="Pageviews by video (since tracking fix)">
+        <SourceBarChart rows={data.visitsByVideo} emptyText="No visits recorded yet." />
       </Card>
     </div>
   );

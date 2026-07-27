@@ -1667,12 +1667,12 @@ export async function findOrCreateGoogleUser(googleId, email, name) {
 
 // --- Waitlist -----------------------------------------------------------------
 
-export async function addWaitlistEntry(email, name = "", source = "direct") {
+export async function addWaitlistEntry(email, name = "", source = "direct", campaign = "") {
   const id = uid("wl");
   try {
     await query(
-      "INSERT INTO waitlist (id, email, name, source) VALUES ($1, $2, $3, $4)",
-      [id, email.toLowerCase().trim(), name.trim(), source]
+      "INSERT INTO waitlist (id, email, name, source, campaign) VALUES ($1, $2, $3, $4, $5)",
+      [id, email.toLowerCase().trim(), name.trim(), source, campaign]
     );
     return { ok: true, alreadyExists: false };
   } catch (err) {
@@ -1690,6 +1690,19 @@ export async function getWaitlistCount() {
 export async function getWaitlistCountsBySource() {
   const { rows } = await query(
     "SELECT source, COUNT(*)::int AS count FROM waitlist GROUP BY source ORDER BY count DESC"
+  );
+  return rows;
+}
+
+/**
+ * Signup counts grouped by video (utm_campaign), most signups first.
+ * Excludes the private 'test' source — unlike the by-source breakdown, a test
+ * signup can't be isolated afterward here (it would just blend into whichever
+ * video's bucket the test link happened to carry), so it's filtered up front.
+ */
+export async function getWaitlistCountsByCampaign() {
+  const { rows } = await query(
+    "SELECT campaign, COUNT(*)::int AS count FROM waitlist WHERE source != 'test' GROUP BY campaign ORDER BY count DESC"
   );
   return rows;
 }

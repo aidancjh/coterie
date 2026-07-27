@@ -110,10 +110,32 @@ Ordered by priority. Update status inline as these move.
 | 17 | Stray local branch `main-aidan` — confirmed fully merged into `main`, no unique commits, deleted. | ✅ Fixed 2026-07-20 |
 | 18 | **ESLint ignores `server/` and `tests/` entirely** — the whole backend has never been linted. `npm run lint` only covers `src/`. Worth widening the config. | ⬜ Not started |
 | 19 | Stale remote branches on origin: `main-aidan`, `cleanup/phases-0-2-hygiene-reliability-a11y`, `worktree-admin-split-analytics`. Deleting remote branches needs Aidan's OK. | ⬜ Awaiting Aidan |
+| 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 
 ---
 
 ## 5. Completed — do not redo
+
+**Per-video waitlist tracking in the admin dashboard (2026-07-27):**
+- ✅ Signups by video is now authoritative in the DB, mirroring the existing
+  signups-by-source pattern: `waitlist.campaign` column (`server/db.js`),
+  captured from `?utm_campaign=` on the waitlist page the same way `source`
+  captures `utm_source` (`WaitlistDesktop.tsx`/`WaitlistMobile.tsx` →
+  `POST /api/waitlist` → `repo.addWaitlistEntry`). Freeform, unlike `source` —
+  no fixed allowlist, since any number of videos get posted over time. Excludes
+  `source='test'` rows at the query level (`repo.getWaitlistCountsByCampaign`)
+  since a test signup's campaign value can't be isolated afterward the way the
+  by-source breakdown isolates its own `'test'` bucket.
+- ✅ Pageviews by video added via a new PostHog query grouped on the `video`
+  super property (`server/posthog.js: queryWaitlistVisitsByVideo`), same
+  `SINCE_UTM_FIX` cutoff as pageviews-by-source.
+- ✅ Both surfaced in `src/admin/pages/Funnel.tsx` as two new cards reusing the
+  existing `SourceBarChart` component (same highest→lowest sort, same visual
+  style as the by-source charts) — no new chart component needed.
+- ✅ Video names are whatever string is used in the link's `utm_campaign` —
+  e.g. `introduction`, `volleyball` — same as PostHog's `video` property, no
+  transformation/allowlist either side, so both stay in sync automatically.
+- Not yet done: mirroring the capture side to `coterie-prototype` (task #20).
 
 **Favicon white-border fix (2026-07-27):**
 - ✅ `scripts/gen-logo.mjs`: the 2026-07-26 black-square fix (commit `4a9aa94`) put

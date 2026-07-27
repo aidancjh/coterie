@@ -4,7 +4,12 @@
 import { Router } from "express";
 import { h } from "./lib/asyncHandler.js";
 import { requireAdminAuth } from "./adminAuth.js";
-import { queryWaitlistFunnel, queryWaitlistVisitsBySource, queryWaitlistVisitsByDay } from "./posthog.js";
+import {
+  queryWaitlistFunnel,
+  queryWaitlistVisitsBySource,
+  queryWaitlistVisitsByVideo,
+  queryWaitlistVisitsByDay,
+} from "./posthog.js";
 import * as repo from "./repo.js";
 
 const router = Router();
@@ -230,18 +235,20 @@ function withRealShare(rows) {
 }
 
 // --- Waitlist funnel analytics --------------------------------------------
-// submittedDb + bySource + signupsByDay (from our own waitlist table) are the
-// source of truth and a hard dependency — a real DB failure here is a genuine
-// 500. PostHog (visits, started, submittedPosthog, visitsBySource) is best-effort:
-// a misconfigured/unreachable PostHog project (bad key, wrong project id,
-// PostHog outage) must not take down the whole tab when the DB-backed numbers
-// are still available — degrade to zeros/empty + posthogError instead.
+// submittedDb + bySource + byCampaign + signupsByDay (from our own waitlist
+// table) are the source of truth and a hard dependency — a real DB failure
+// here is a genuine 500. PostHog (visits, started, submittedPosthog,
+// visitsBySource, visitsByVideo) is best-effort: a misconfigured/unreachable
+// PostHog project (bad key, wrong project id, PostHog outage) must not take
+// down the whole tab when the DB-backed numbers are still available —
+// degrade to zeros/empty + posthogError instead.
 router.get(
   "/analytics/funnel",
   h(async (_req, res) => {
-    const [submittedDb, rawBySource, rawSignupsByDay] = await Promise.all([
+    const [submittedDb, rawBySource, rawByCampaign, rawSignupsByDay] = await Promise.all([
       repo.getWaitlistCount(),
       repo.getWaitlistCountsBySource(),
+      repo.getWaitlistCountsByCampaign(),
       repo.getWaitlistSignupsByDay(),
     ]);
 
@@ -249,16 +256,19 @@ router.get(
     let started = 0;
     let submittedPosthog = 0;
     let rawVisitsBySource = [];
+    let rawVisitsByVideo = [];
     let rawVisitsByDay = [];
     let posthogError = null;
     try {
-      const [funnel, visitsBySource, visitsByDayResult] = await Promise.all([
+      const [funnel, visitsBySource, visitsByVideo, visitsByDayResult] = await Promise.all([
         queryWaitlistFunnel(),
         queryWaitlistVisitsBySource(),
+        queryWaitlistVisitsByVideo(),
         queryWaitlistVisitsByDay(),
       ]);
       ({ visits, started, submittedPosthog } = funnel);
       rawVisitsBySource = visitsBySource;
+      rawVisitsByVideo = visitsByVideo;
       rawVisitsByDay = visitsByDayResult;
     } catch (err) {
       console.error("[funnel] PostHog query failed:", err);
@@ -268,8 +278,14 @@ router.get(
     const startedRate = visits > 0 ? Math.round((started / visits) * 100) : 0;
     const submittedRate = visits > 0 ? Math.round((submittedDb / visits) * 100) : 0;
     const bySource = withRealShare(rawBySource);
+    const byCampaign = withRealShare(
+      rawByCampaign.map((r) => ({ source: r.campaign || "untagged", count: r.count }))
+    );
     const visitsBySource = withRealShare(
       rawVisitsBySource.map((r) => ({ source: r.source, count: r.visits }))
+    );
+    const visitsByVideo = withRealShare(
+      rawVisitsByVideo.map((r) => ({ source: r.video, count: r.visits }))
     );
     // Both time-series charts share one axis: earliest data day → today.
     const { signupsByDay, visitsByDay } = alignDailySeries(rawSignupsByDay, rawVisitsByDay);
@@ -281,7 +297,9 @@ router.get(
       startedRate,
       submittedRate,
       bySource,
+      byCampaign,
       visitsBySource,
+      visitsByVideo,
       signupsByDay,
       visitsByDay,
       posthogError,

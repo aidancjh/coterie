@@ -63,6 +63,25 @@ const VISITS_BY_SOURCE_QUERY = `
 // series onto one shared date axis. Returns only days that had at least one
 // pageview. Excludes the 'test' utm_source bucket, same as FUNNEL_QUERY's
 // visits count.
+// Page visits on /waitlist grouped by the `video` super property (registered
+// from utm_campaign, src/lib/posthog.ts) — the visits half of the video
+// breakdown; DB-backed getWaitlistCountsByCampaign() is the signups half.
+// Excludes utm_source=test explicitly (rather than relying on a 'test' bucket
+// like VISITS_BY_SOURCE_QUERY does) because a test click's video value would
+// otherwise blend indistinguishably into that video's real bucket here.
+const VISITS_BY_VIDEO_QUERY = `
+  SELECT
+    coalesce(nullIf(properties.video, ''), 'untagged') AS video,
+    count() AS visits
+  FROM events
+  WHERE event = '$pageview'
+    AND properties.$pathname = '/waitlist'
+    AND coalesce(properties.utm_source, '') != 'test'
+    AND ${SINCE_UTM_FIX}
+  GROUP BY video
+  ORDER BY visits DESC
+`;
+
 const VISITS_BY_DAY_QUERY = `
   SELECT toDate(timestamp) AS day, count() AS visits
   FROM events
@@ -144,6 +163,18 @@ export async function queryWaitlistVisitsBySource() {
     .filter((r) => Array.isArray(r) && r.length === 2)
     .map(([source, visits]) => ({
       source: typeof source === "string" && source !== "" ? source : "direct",
+      visits: Number(visits) || 0,
+    }));
+}
+
+/** Visit counts grouped by video, most visits first: [{ video, visits }]. */
+export async function queryWaitlistVisitsByVideo() {
+  const data = await runHogQL(VISITS_BY_VIDEO_QUERY);
+  const rows = Array.isArray(data.results) ? data.results : [];
+  return rows
+    .filter((r) => Array.isArray(r) && r.length === 2)
+    .map(([video, visits]) => ({
+      video: typeof video === "string" && video !== "" ? video : "untagged",
       visits: Number(visits) || 0,
     }));
 }

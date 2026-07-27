@@ -18,6 +18,10 @@ vi.mock("../server/repo.js", () => ({
     { source: "instagram", count: 5 },
     { source: "direct", count: 2 },
   ]),
+  getWaitlistCountsByCampaign: vi.fn().mockResolvedValue([
+    { campaign: "introduction", count: 4 },
+    { campaign: "", count: 3 },
+  ]),
   getWaitlistSignupsByDay: vi.fn().mockResolvedValue([]),
   logAdminAction: vi.fn().mockResolvedValue(undefined),
   findUserById: vi.fn(),
@@ -29,6 +33,10 @@ vi.mock("../server/posthog.js", () => ({
   queryWaitlistVisitsBySource: vi.fn().mockResolvedValue([
     { source: "instagram", visits: 60 },
     { source: "direct", visits: 40 },
+  ]),
+  queryWaitlistVisitsByVideo: vi.fn().mockResolvedValue([
+    { video: "introduction", visits: 35 },
+    { video: "untagged", visits: 65 },
   ]),
   queryWaitlistVisitsByDay: vi.fn().mockResolvedValue([]),
 }));
@@ -80,9 +88,17 @@ describe("adminRoutes", () => {
         { source: "instagram", count: 5, percent: 71.4 }, // 5/7
         { source: "direct", count: 2, percent: 28.6 }, // 2/7
       ],
+      byCampaign: [
+        { source: "introduction", count: 4, percent: 57.1 }, // 4/7
+        { source: "untagged", count: 3, percent: 42.9 }, // 3/7
+      ],
       visitsBySource: [
         { source: "instagram", count: 60, percent: 60 }, // 60/100
         { source: "direct", count: 40, percent: 40 }, // 40/100
+      ],
+      visitsByVideo: [
+        { source: "introduction", count: 35, percent: 35 }, // 35/100
+        { source: "untagged", count: 65, percent: 65 }, // 65/100
       ],
       signupsByDay: [{ date: today, count: 4 }],
       visitsByDay: [{ date: today, count: 8 }],
@@ -142,7 +158,12 @@ describe("adminRoutes", () => {
       startedRate: 0,
       submittedRate: 0,
       bySource: [{ source: "direct", count: 9, percent: 100 }],
+      byCampaign: [
+        { source: "introduction", count: 4, percent: 57.1 }, // 4/7
+        { source: "untagged", count: 3, percent: 42.9 }, // 3/7
+      ],
       visitsBySource: [],
+      visitsByVideo: [],
       // PostHog failed, so pageviews-by-day is zero-filled on the signup axis.
       signupsByDay: [{ date: today, count: 9 }],
       visitsByDay: [{ date: today, count: 0 }],

@@ -29,7 +29,9 @@ interface WaitlistFunnel {
   startedRate: number;
   submittedRate: number;
   bySource: WaitlistSourceStat[];
+  byCampaign: WaitlistSourceStat[];
   visitsBySource: WaitlistSourceStat[];
+  visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
   visitsByDay: WaitlistDayStat[];
   posthogError: string | null;
