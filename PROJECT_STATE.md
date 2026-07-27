@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-07-23 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-07-27 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -114,6 +114,18 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Favicon white-border fix (2026-07-27):**
+- ✅ `scripts/gen-logo.mjs`: the 2026-07-26 black-square fix (commit `4a9aa94`) put
+  every icon — including the browser-tab favicon — on a padded white tile, to stop
+  iOS rendering `apple-touch-icon.png`'s transparency as opaque black on
+  "Add to Home Screen". That fix was correct for `apple-touch-icon.png`,
+  `pwa-192x192.png`, `pwa-512x512.png`, `maskable-512x512.png` (all still keep the
+  white tile), but browser tabs don't have iOS's compositing problem — the white
+  tile just showed up as a visible white border around the mark, unlike every
+  other site's tab icon. `favicon-32x32.png` and `favicon.svg` reverted to a plain
+  transparent downscale of the mark (their pre-`4a9aa94` form) — regenerated via
+  `node scripts/gen-logo.mjs`.
 
 **Waitlist page rebranded to Coterie red (2026-07-23, both apps):**
 - ✅ `WaitlistDesktop.tsx` + `WaitlistMobile.tsx`: "vybe" → "Coterie"; entire blue

@@ -243,7 +243,12 @@ function iconTile(size, padFrac = 0.13) {
   over(tile, m, off, off);
   return tile;
 }
-w(P("favicon-32x32.png"), iconTile(32));
+// Browser tabs don't have iOS's opaque-transparency problem — they composite
+// favicons fine against the tab's own background, and every other site's tab
+// icon fills its space with no padding box. A white iconTile() here showed up
+// as a visible white border/square around the mark next to other tabs, so
+// favicon-32x32.png stays a naked transparent downscale (its pre-4a9aa94 form).
+w(P("favicon-32x32.png"), downscale(mark, 32, 32));
 w(P("apple-touch-icon.png"), iconTile(180));
 w(P("pwa-192x192.png"), iconTile(192));
 w(P("pwa-512x512.png"), iconTile(512));
@@ -260,12 +265,11 @@ w(P("maskable-512x512.png"), iconTile(512, 0.13));
   w(P("og-image.png"), og);
 }
 
-// 6. favicon.svg — mark on a white tile, matching the PNG icons above
+// 6. favicon.svg — the exact mark wrapped as SVG, no white backing tile (see
+// favicon-32x32.png comment above — browser tabs don't need the iOS fix).
 {
   const b64 = readFileSync(A("mark-standalone-red.png")).toString("base64");
-  const pad = 133; // ~13% of 1024, matches iconTile's padFrac
-  const inner = 1024 - pad * 2;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><rect width="1024" height="1024" fill="#ffffff"/><image href="data:image/png;base64,${b64}" x="${pad}" y="${pad}" width="${inner}" height="${inner}"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><image href="data:image/png;base64,${b64}" width="1024" height="1024"/></svg>`;
   writeFileSync(P("favicon.svg"), svg);
   console.log("wrote ./public/favicon.svg");
 }
