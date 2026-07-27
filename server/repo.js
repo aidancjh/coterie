@@ -90,7 +90,7 @@ function hoursUntilStart(game) {
  * Returns null when there's no history yet, so profiles show "—" rather than a
  * meaningless 0% or 100% off a single data point.
  */
-async function getParticipationRate(userId) {
+export async function getParticipationRate(userId) {
   const today = new Date().toISOString().slice(0, 10);
   const attended = Number(
     (

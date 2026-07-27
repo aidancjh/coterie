@@ -260,8 +260,14 @@ app.get(
     if (!user) return res.status(401).json({ error: "Account not found." });
     if (user.suspended)
       return res.status(403).json({ error: "This account has been suspended." });
-    const playerRating = await repo.getPlayerRating(req.userId);
-    res.json({ user: { ...repo.publicUser(user), playerRating } });
+    // participationRate rides along with playerRating: the signed-in user's own
+    // profile page renders straight from this payload, so without it the user
+    // sees "—" for their own reliability while everyone else sees the number.
+    const [playerRating, participationRate] = await Promise.all([
+      repo.getPlayerRating(req.userId),
+      repo.getParticipationRate(req.userId),
+    ]);
+    res.json({ user: { ...repo.publicUser(user), playerRating, participationRate } });
   })
 );
 
