@@ -155,6 +155,38 @@ Ordered by priority. Update status inline as these move.
   resolves on both.
 - Mirrored into `coterie-prototype` (see §"Preview fork sync" below).
 
+**Demo data variation — participation, peer and host ratings (2026-07-29):**
+- Problem: every demo profile read an identical **100% participation**; all five
+  headline accounts sat between **4.59–4.64** peer rating with the same vote
+  count; host ratings clustered **4.69–4.85**; and **24 supporting accounts had
+  no ratings at all** despite 20+ past games. Uniform data makes a stat look
+  decorative rather than real.
+- ✅ `game_dropouts` is now seeded: each demo player gets a target from
+  `PARTICIPATION_TARGETS` and enough late bails to land near it. Bails are
+  recorded **only on past games the player is not on the roster of** — the
+  truthful shape (they left, so they aren't a member) and it avoids counting one
+  game as both attended and bailed, which would understate the rate.
+- ✅ Peer ratings: a per-player target average with ±1 jitter per vote, replacing
+  one shared `pattern` array reused for everybody. Supporting cast (`user_p*`)
+  now receive 5–12 votes each.
+- ✅ Host reviews: per-host target from `HOST_RATING_TARGETS`, replacing
+  "5 unless hash, then 4".
+- ✅ Result: participation **76–100%**, peer **3.60–4.70**, host **3.81–4.58**,
+  and zero demo accounts without a rating.
+- **`SHOWCASE_USER` (`user_maria` / 1@demo.test) is pinned** to 97% / 4.7 / 4.8.
+  The hash had by chance given the primary demo login the worst numbers of the
+  entire cast — a poor account to walk someone through the app on.
+- Content changes here need the old rows cleared first, since
+  `ON CONFLICT DO NOTHING` never updates: delete `pr_show_%` / `rev_seed_%`,
+  then re-run `seedPastData()` + `seedEngagement()`.
+- **Incident (second of this kind):** the `SHOWCASE_*` constants were first
+  declared beside the other tuning constants, *below* the `demoShowcaseRatings`
+  IIFE that reads them. `const` is not hoisted the way a function declaration
+  is, so the module threw `ReferenceError: Cannot access 'SHOWCASE_USER' before
+  initialization` at import. Caught before deploy this time by **executing** the
+  module, not just running `node --check` — see
+  [verify-server-code-before-deploy].
+
 **Demo engagement data — rosters, chat, comments, reviews (2026-07-27):**
 - Problem: the app read as empty. 75 of 92 games had only the host on the
   roster, `game_comments` and `game_interest` were 0 rows, `messages` was 5,
