@@ -155,6 +155,38 @@ Ordered by priority. Update status inline as these move.
   resolves on both.
 - Mirrored into `coterie-prototype` (see §"Preview fork sync" below).
 
+**Profile header rebuilt + tab-highlight fix (2026-07-29):**
+- ✅ New `src/components/ProfileHeader.tsx` is used by **both** `Profile.tsx` and
+  `UserProfile.tsx`. Aidan's requirement was that the two be *exactly* the same;
+  one shared component makes that structural rather than a thing to police.
+  Verified live: both render 216×343, avatar 80×80 at the same offset, name at
+  the same y — byte-identical measurements.
+- ✅ Layout: brand band, avatar, name, and a subtitle that is now **standard +
+  position** (was free-text). No location, no follow button (neither wanted).
+  Stats collapse to **one line: Joined · Hosted · Participation · Reviews**,
+  replacing the old 3-card grid and the participation figure inside RatingHero
+  (which would otherwise have shown twice).
+- ✅ The only own-vs-other difference is the action slot — "Edit profile" for
+  yourself, a 3-dot report menu for others. The slot is a fixed-height bar
+  either way, so swapping one for the other cannot shift the layout.
+- ✅ **Host reviews finally surfaced.** They were collected since launch and
+  displayed nowhere (was a named to-do in §9). `getUserProfile` and
+  `/api/auth/me` now return `hostRating`, feeding the Reviews stat.
+  `getUserGameCounts()` was extracted so `/api/auth/me` can fill the stat row
+  without building an entire public profile.
+- ✅ **Report a user**: `"user"` added to `REPORT_TYPES`; new `ReportUserMenu`
+  posts to the existing `POST /api/reports` with five preset reasons. No new
+  backend was needed — the reports queue and admin review screen already existed.
+- ✅ **Tab-highlight bug fixed.** `/user/*` was mapped to `/profile`, so opening
+  another player lit the Profile tab as though you were viewing your own
+  account. `tabRootFor` no longer maps it; new `useActiveTab` keeps the last
+  real tab lit for routes belonging to no tab. Verified from Browse, Chats,
+  Alerts and Profile — each keeps its own tab lit. A cold deep-link to
+  `/user/:id` lights nothing, which is correct: there is no tab you came from.
+- ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
+  GameDetail; the open-spots filter reads "Any number". The stored value stays
+  `"Any"` — changing it would orphan every game already saved with it.
+
 **Demo data variation — participation, peer and host ratings (2026-07-29):**
 - Problem: every demo profile read an identical **100% participation**; all five
   headline accounts sat between **4.59–4.64** peer rating with the same vote
