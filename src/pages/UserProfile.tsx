@@ -116,13 +116,17 @@ export default function UserProfile() {
             </p>
           )}
 
-          {/* Player rating. Participation lives in the header stat row now, so
-              it isn't shown twice. */}
+          {/* Player rating, with participation beside the stars — same as your
+              own profile, and the same value the header stat row shows. */}
           <div className="mt-4">
             {rating && rating.count > 0 ? (
-              <RatingHero avg={rating.avg ?? 0} count={rating.count} />
+              <RatingHero
+                avg={rating.avg ?? 0}
+                count={rating.count}
+                participationRate={profile.participationRate}
+              />
             ) : (
-              <RatingEmpty />
+              <RatingEmpty participationRate={profile.participationRate} />
             )}
           </div>
 

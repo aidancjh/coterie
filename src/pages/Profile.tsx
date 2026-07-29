@@ -435,13 +435,18 @@ export default function Profile() {
           <p className="mt-3 text-sm leading-relaxed text-slate-300">{user.bio}</p>
         )}
 
-        {/* Player rating. Participation now lives in the header stat row, so
-            it isn't repeated here. */}
+        {/* Player rating, with participation beside the stars. It also appears
+            in the header stat row; Aidan wants it in both places, so both are
+            fed from the same value and can't disagree. */}
         <div className="mt-4">
           {user?.playerRating && user.playerRating.count > 0 ? (
-            <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} />
+            <RatingHero
+              avg={user.playerRating.avg ?? 0}
+              count={user.playerRating.count}
+              participationRate={user?.participationRate}
+            />
           ) : (
-            <RatingEmpty />
+            <RatingEmpty participationRate={user?.participationRate} />
           )}
         </div>
       </div>

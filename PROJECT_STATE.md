@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-07-27 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-07-29 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -164,8 +164,9 @@ Ordered by priority. Update status inline as these move.
 - ✅ Layout: brand band, avatar, name, and a subtitle that is now **standard +
   position** (was free-text). No location, no follow button (neither wanted).
   Stats collapse to **one line: Joined · Hosted · Participation · Reviews**,
-  replacing the old 3-card grid and the participation figure inside RatingHero
-  (which would otherwise have shown twice).
+  replacing the old 3-card grid. Participation was also dropped from the pages'
+  calls to RatingHero/RatingEmpty to avoid showing twice — **reversed the same
+  day, see below**.
 - ✅ The only own-vs-other difference is the action slot — "Edit profile" for
   yourself, a 3-dot report menu for others. The slot is a fixed-height bar
   either way, so swapping one for the other cannot shift the layout.
@@ -186,6 +187,18 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Participation restored to the rating block (2026-07-29):**
+- Bug: every profile's rating card showed a bare **"—  PARTICIPATION"**. Not
+  missing data — the header rebuild (above) stopped passing `participationRate`
+  into `RatingHero`/`RatingEmpty` from `Profile.tsx` and `UserProfile.tsx`, but
+  left the `ParticipationStat` block rendering inside them, so it fell back to
+  the null dash on every profile while the header showed the real figure.
+- **Decision reversed (Aidan's call):** participation *does* appear twice — once
+  in the header stat row, once beside the stars. Both pages now pass the same
+  `participationRate` value into the rating block, so the two can't disagree.
+- The preview fork never took the header rebuild, so its pages already pass
+  `participationRate` — no mirror needed for this fix.
 
 **Demo data variation — participation, peer and host ratings (2026-07-29):**
 - Problem: every demo profile read an identical **100% participation**; all five
