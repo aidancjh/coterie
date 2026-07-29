@@ -408,20 +408,49 @@ const pastPlayerRatings = [
   { id: "pr_3_grace_p12",  game_id: "game_past_3", rater_id: "user_grace",  rated_id: "user_p12",   rating: 4 },
 ];
 
-// Give every demo account a full body of teammate ratings (25 each) so their
-// profiles show a populated rating + participation stat. All five demo players
-// share one synthetic past game ("game_ratings_showcase") and are rated by each
-// other plus a pool of regulars. Static ids keep this idempotent across restarts.
+// 1@demo.test is the account used to walk people through the app, so its
+// profile is pinned to strong-but-not-flawless rather than left to the hash —
+// which had assigned it the worst numbers of the entire cast. Everyone else
+// keeps the full spread; the point of the variation is lost if the account
+// shown in demos is the least reliable one on the platform.
+//
+// Declared here rather than beside the other tuning constants further down:
+// demoShowcaseRatings below is an IIFE that runs at module load, and `const`
+// is not hoisted the way a function declaration is.
+const SHOWCASE_USER = "user_maria";
+const SHOWCASE_PARTICIPATION = 97;
+const SHOWCASE_PEER_RATING = 4.7;
+const SHOWCASE_HOST_RATING = 4.8;
+
+// Teammate ratings for the demo cast. Everyone shares one synthetic past game
+// ("game_ratings_showcase") and is rated by the others plus a pool of regulars.
+//
+// Each rated player gets their OWN target average rather than one shared
+// pattern — an earlier version reused a single sequence for everybody, which
+// left all five headline accounts sitting between 4.59 and 4.64 with an
+// identical vote count. Believable data needs people who are merely fine, not
+// a cast where everyone is equally excellent.
+//
+// The supporting cast (user_p*) are rated too, by a smaller pool, so their
+// profiles aren't blank — several of them have 20+ past games.
 const demoShowcaseRatings = (() => {
-  const raters = [
-    "user_maria", "user_theo", "user_grace", "user_dre", "user_nina",
-    ...Array.from({ length: 21 }, (_, i) => `user_p${i}`),
-  ];
-  const rated = ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"];
-  const pattern = [5, 5, 4, 5, 5, 4, 5, 3, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4, 5, 5, 4];
+  const mains = ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"];
+  const supporting = Array.from({ length: 24 }, (_, i) => `user_p${i}`);
+  const raters = [...mains, ...supporting.slice(0, 21)];
+
+  // Deliberately spread, including a couple of genuinely middling players.
+  const TARGETS = [4.9, 4.1, 4.6, 3.8, 4.4, 4.75, 3.6, 4.25, 4.55, 4.0];
+
   const out = [];
-  for (const ratedId of rated) {
-    let i = 0;
+  const rate = (ratedId, raterId, target) => {
+    // Jitter of roughly ±1 around the target, so the spread of individual
+    // votes looks human while the average lands near where we want it.
+    const j = (hashStr(raterId + ratedId) % 200) / 100 - 1;
+    return Math.max(1, Math.min(5, Math.round(target + j)));
+  };
+
+  for (const ratedId of mains) {
+    const target = ratedId === SHOWCASE_USER ? SHOWCASE_PEER_RATING : TARGETS[hashStr(ratedId) % TARGETS.length];
     for (const raterId of raters) {
       if (raterId === ratedId) continue;
       out.push({
@@ -429,12 +458,32 @@ const demoShowcaseRatings = (() => {
         game_id: "game_ratings_showcase",
         rater_id: raterId,
         rated_id: ratedId,
-        rating: pattern[i % pattern.length],
+        rating: rate(ratedId, raterId, target),
       });
-      i += 1;
     }
   }
-  return out;
+  // Supporting cast: 5-12 votes each, enough to look real without implying
+  // they're as established as the headline accounts.
+  for (const ratedId of supporting) {
+    const target = TARGETS[hashStr(ratedId + "s") % TARGETS.length];
+    const n = 5 + (hashStr(ratedId + "n") % 8);
+    const pool = raters.filter((r) => r !== ratedId);
+    for (let i = 0; i < n; i++) {
+      const raterId = pool[(hashStr(ratedId + i) % pool.length)];
+      if (raterId === ratedId) continue;
+      out.push({
+        id: `pr_show_${raterId}_${ratedId}`,
+        game_id: "game_ratings_showcase",
+        rater_id: raterId,
+        rated_id: ratedId,
+        rating: rate(ratedId, raterId, target),
+      });
+    }
+  }
+  // Static ids mean duplicates collapse; de-dupe so the INSERT doesn't carry
+  // the same primary key twice within one batch.
+  const seen = new Set();
+  return out.filter((r) => (seen.has(r.id) ? false : seen.add(r.id)));
 })();
 
 /** Idempotent — upserts past games, host reviews, and player ratings. Safe to
@@ -507,6 +556,15 @@ export async function seedPastData() {
 // ---------------------------------------------------------------------------
 
 const DEMO_HOST_IDS = ["user_maria", "user_theo", "user_grace", "user_dre", "user_nina"];
+
+// Target average star rating per host, assigned by hash. Spread on purpose:
+// a well-run game and a shambolic one should not look identical on a profile.
+const HOST_RATING_TARGETS = [4.85, 4.1, 4.5, 3.9, 4.65];
+
+// Target participation percentages, assigned per player. 100 exists (some
+// people genuinely never bail) but most sit lower, which is what makes the
+// number worth reading at all.
+const PARTICIPATION_TARGETS = [100, 97, 93, 100, 88, 82, 95, 76, 90, 85];
 
 /** Stable 32-bit hash — same string always picks the same pool entry. */
 function hashStr(s) {
@@ -763,9 +821,16 @@ export async function seedEngagement() {
     // players (never the host reviewing themselves). About two thirds of the
     // roster leaves one, which is generous but not implausible.
     if (startMs < nowMs) {
+      // Each host has their own standing, so reviews cluster around a target
+      // rather than everyone landing in the high 4s. Hosts genuinely differ —
+      // a dashboard where every host is ~4.8 tells you nothing.
+      const hostTarget = g.host_id === SHOWCASE_USER
+        ? SHOWCASE_HOST_RATING
+        : HOST_RATING_TARGETS[hashStr(g.host_id) % HOST_RATING_TARGETS.length];
       others.forEach((uid, i) => {
         if (hashStr(g.id + uid) % 3 === 0) return; // ~1 in 3 doesn't review
-        const rating = hashStr(uid + g.id) % 5 === 0 ? 4 : 5;
+        const j = (hashStr(uid + g.id) % 200) / 100 - 1; // ±1 around the target
+        const rating = Math.max(1, Math.min(5, Math.round(hostTarget + j)));
         reviews.push([
           `rev_seed_${g.id}_${i}`, g.id, uid, g.host_id, rating,
           pick(REVIEW_COMMENTS, g.id + uid), iso(startMs + 6 * 3600000),
@@ -780,6 +845,59 @@ export async function seedEngagement() {
     }
   }
 
+  // 6. Participation variation. Without dropouts every profile reads a flat
+  // 100%, which makes the reliability stat look decorative. Each demo player
+  // gets a target rate and enough late bails to land near it.
+  //
+  // Bails are recorded ONLY on past games the player is not currently on the
+  // roster of — which is the truthful shape of the data (they left, so they're
+  // not a member) and also avoids counting one game as both attended and
+  // bailed, which would understate the rate.
+  const today = new Date().toISOString().slice(0, 10);
+  const { rows: pastRows } = await query(
+    `SELECT gm.user_id, gm.game_id
+       FROM game_members gm
+       JOIN games g ON g.id = gm.game_id
+      WHERE g.host_id = ANY($1) AND g.date < $2 AND gm.status = 'player'`,
+    [DEMO_HOST_IDS, today]
+  );
+  const { rows: pastGameRows } = await query(
+    `SELECT id, date, time FROM games
+      WHERE host_id = ANY($1) AND date < $2 ORDER BY id`,
+    [DEMO_HOST_IDS, today]
+  );
+  const attendedBy = new Map();
+  for (const row of pastRows) {
+    if (!attendedBy.has(row.user_id)) attendedBy.set(row.user_id, new Set());
+    attendedBy.get(row.user_id).add(row.game_id);
+  }
+
+  const dropouts = [];
+  for (const uid of demoIds) {
+    const attended = attendedBy.get(uid)?.size ?? 0;
+    if (attended < 5) continue; // too little history for a rate to mean anything
+    const target = uid === SHOWCASE_USER
+      ? SHOWCASE_PARTICIPATION
+      : PARTICIPATION_TARGETS[hashStr(uid + "p") % PARTICIPATION_TARGETS.length];
+    if (target >= 100) continue;
+    // attended / (attended + bails) = target/100  →  solve for bails
+    const bails = Math.round((attended * (100 - target)) / target);
+    if (bails < 1) continue;
+    const candidates = pastGameRows
+      .filter((g) => !attendedBy.get(uid).has(g.id))
+      .sort((a, b) => hashStr(uid + a.id) - hashStr(uid + b.id))
+      .slice(0, bails);
+    for (const g of candidates) {
+      const startMs = new Date(`${g.date}T${g.time || "18:00"}:00Z`).getTime();
+      const hoursBefore = 2 + (hashStr(uid + g.id + "h") % 20); // 2-21h → always late
+      dropouts.push([
+        g.id, uid,
+        iso(Number.isFinite(startMs) ? startMs - hoursBefore * 3600000 : nowMs),
+        hoursBefore, true,
+      ]);
+    }
+  }
+
   const m = await bulkInsert("messages", ["id", "game_id", "user_id", "body", "created_at"],
     messages, "ON CONFLICT (id) DO NOTHING");
   const c = await bulkInsert("game_comments", ["id", "game_id", "user_id", "body", "created_at"],
@@ -789,11 +907,14 @@ export async function seedEngagement() {
     reviews, "ON CONFLICT (game_id, reviewer_id) DO NOTHING");
   const s = await bulkInsert("game_interest", ["game_id", "user_id"],
     interest, "ON CONFLICT DO NOTHING");
+  const d = await bulkInsert("game_dropouts",
+    ["game_id", "user_id", "left_at", "hours_before", "late"],
+    dropouts, "ON CONFLICT (game_id, user_id) DO NOTHING");
 
-  if (mem + m + c + r + s > 0) {
+  if (mem + m + c + r + s + d > 0) {
     console.log(
       `[seed] seedEngagement: +${mem} roster spots, +${m} messages, ` +
-      `+${c} comments, +${r} reviews, +${s} stars`
+      `+${c} comments, +${r} reviews, +${s} stars, +${d} dropouts`
     );
   }
 }
