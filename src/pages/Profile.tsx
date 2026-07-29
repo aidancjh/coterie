@@ -4,7 +4,8 @@ import { getUserHighlights } from "../services/gamesService";
 import { api } from "../lib/api";
 import { getUploadSignature } from "../lib/cloudinaryUpload";
 import type { Highlight, SkillLevel } from "../types";
-import { SkillBadge, RatingHero, RatingEmpty } from "../components/Badges";
+import { RatingHero, RatingEmpty } from "../components/Badges";
+import ProfileHeader from "../components/ProfileHeader";
 import {
   CameraIcon,
   ClapperIcon,
@@ -27,14 +28,6 @@ const skills: SkillLevel[] = ["Low Beginner", "High Beginner", "Low Intermediate
 const GENDER_OPTIONS = ["Man", "Woman", "Prefer not to say"];
 const POSITION_OPTIONS = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero"];
 
-const POSITION_ABBR: Record<string, string> = {
-  "Setter": "SET",
-  "Outside Hitter": "OH",
-  "Middle Blocker": "MB",
-  "Opposite": "OPP",
-  "Libero": "LIB",
-  "Defensive Specialist": "DS",
-};
 
 function computeAge(birthdate: string | null | undefined): number | null {
   if (!birthdate) return null;
@@ -401,96 +394,55 @@ export default function Profile() {
 
   return (
     <div>
-      {/* Profile card */}
-      <div className="relative mb-4 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-sm">
+      {/* Shared with UserProfile so the two pages can't drift apart. The only
+          difference is this action slot, which is a fixed size either way. */}
+      <ProfileHeader
+        name={user?.name || "You"}
+        avatarUrl={displayAvatar}
+        skill={user?.skill ?? "Intermediate"}
+        positions={user?.favoritePositions}
+        stats={{
+          gamesPlayed: stats?.gamesPlayed ?? user?.gamesPlayed,
+          gamesHosted: stats?.gamesHosted ?? user?.gamesHosted,
+          participationRate: user?.participationRate,
+          reviewCount: user?.hostRating?.count,
+        }}
+        action={
+          <button
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-black/30 active:scale-95"
+          >
+            <PencilIcon className="h-3.5 w-3.5" aria-hidden />
+            Edit profile
+          </button>
+        }
+      />
 
-        <div className="px-4 pb-5 pt-4">
-          {/* Edit — a labelled control, not a bare icon: an unlabelled pencil
-              on its own left people unsure what it edits. */}
-          <div className="flex justify-end">
-            <button
-              onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-brand/40 hover:text-brand active:scale-95"
-            >
-              <PencilIcon className="h-3.5 w-3.5" aria-hidden />
-              Edit profile
-            </button>
-          </div>
+      <div className="mb-4 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 px-4 py-5 shadow-sm">
+        {/* Age / gender, if the user chose to show them */}
+        {(() => {
+          const age = computeAge(user?.birthdate);
+          const parts = [
+            user?.showAge !== false && age !== null ? `${age} yrs` : null,
+            user?.showGender !== false && user?.userGender ? user.userGender : null,
+          ].filter(Boolean);
+          return parts.length > 0 ? (
+            <p className="text-center text-xs text-slate-400">{parts.join(" · ")}</p>
+          ) : null;
+        })()}
 
-          {/* Avatar — centered */}
-          <div className="flex justify-center">
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand text-3xl font-bold text-white ring-4 ring-slate-900">
-              {displayAvatar ? (
-                <img src={displayAvatar} alt={user?.name} className="h-full w-full object-cover" />
-              ) : initials}
-            </div>
-          </div>
+        {user?.bio && (
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">{user.bio}</p>
+        )}
 
-          {/* Name + info — centered */}
-          <div className="mt-3 text-center">
-            <p className="text-xl font-bold text-white">{user?.name || "You"}</p>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-              <SkillBadge skill={user?.skill ?? "Intermediate"} size="lg" />
-            </div>
-            {(() => {
-              const age = computeAge(user?.birthdate);
-              const parts = [
-                user?.showAge !== false && age !== null ? `${age} yrs` : null,
-                user?.showGender !== false && user?.userGender ? user.userGender : null,
-              ].filter(Boolean);
-              return parts.length > 0 ? (
-                <p className="mt-1 text-xs text-slate-400">{parts.join(" · ")}</p>
-              ) : null;
-            })()}
-          </div>
-
-          {/* Bio — only shown when present */}
-          {user?.bio && (
-            <p className="mt-4 border-t border-slate-50 pt-4 text-sm leading-relaxed text-slate-300">
-              {user.bio}
-            </p>
+        {/* Player rating. Participation now lives in the header stat row, so
+            it isn't repeated here. */}
+        <div className="mt-4">
+          {user?.playerRating && user.playerRating.count > 0 ? (
+            <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} />
+          ) : (
+            <RatingEmpty />
           )}
-
-          {/* Player rating — always shown for a consistent ratings area */}
-          <div className="mt-4">
-            {user?.playerRating && user.playerRating.count > 0 ? (
-              <RatingHero avg={user.playerRating.avg ?? 0} count={user.playerRating.count} participationRate={user.participationRate} />
-            ) : (
-              <RatingEmpty participationRate={user?.participationRate} />
-            )}
-          </div>
-
-          {/* Favorite positions */}
-          {user?.favoritePositions && user.favoritePositions.length > 0 && (
-            <div className="mt-4 border-t border-slate-50 pt-4 text-center">
-              <p className="mb-1.5 text-xs font-medium text-slate-400">Positions</p>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {user.favoritePositions.map((p) => (
-                  <span key={p} className="rounded-lg bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">{p}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Stats cards — outside card, 3-col */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <div className="rounded-2xl bg-gradient-to-br from-brand/20 to-sky-500/10 p-3 text-center ring-1 ring-brand/25">
-          <p className="text-2xl font-bold text-brand">{stats?.gamesHosted ?? "—"}</p>
-          <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">Hosted</p>
-        </div>
-        <div className="rounded-2xl bg-gradient-to-br from-sky-50 to-sky-100/60 p-3 text-center ring-1 ring-sky-200/60">
-          <p className="text-2xl font-bold text-sky-600">{stats?.gamesPlayed ?? "—"}</p>
-          <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">Joined</p>
-        </div>
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/60 p-3 text-center ring-1 ring-emerald-200/60">
-          <p className="text-2xl font-bold text-emerald-600">
-            {user?.favoritePositions?.[0]
-              ? (POSITION_ABBR[user.favoritePositions[0]] ?? user.favoritePositions[0].slice(0, 3).toUpperCase())
-              : "—"}
-          </p>
-          <p className="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-400">Position</p>
         </div>
       </div>
 

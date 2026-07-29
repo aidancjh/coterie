@@ -20,14 +20,31 @@ import {
 import { Logo } from "./Logo";
 
 // Which tab root a route belongs to. Deep routes keep their parent tab lit:
-// a game detail is still "Browse", a chat room is still "Chats", a user
-// profile is still "Profile".
+// a game detail is still "Browse", a chat room is still "Chats".
+//
+// /user/:id is deliberately NOT mapped to /profile. You reach another player's
+// profile from a roster, a chat or a comment — lighting the Profile tab implies
+// you're looking at your own account, which you aren't. It returns null so the
+// caller falls back to whichever tab you were already on.
 function tabRootFor(pathname: string): string | null {
   if (pathname === "/" || pathname.startsWith("/game") || pathname === "/create") return "/";
   if (pathname.startsWith("/chats")) return "/chats";
   if (pathname.startsWith("/notifications")) return "/notifications";
-  if (pathname.startsWith("/profile") || pathname.startsWith("/user")) return "/profile";
+  if (pathname.startsWith("/profile")) return "/profile";
   return null;
+}
+
+/**
+ * The tab to render as active. For routes that belong to no tab (someone
+ * else's profile, settings, interested) we keep the last real tab lit rather
+ * than clearing the bar or guessing — so opening a player from Browse leaves
+ * Browse lit, and opening one from Chats leaves Chats lit.
+ */
+function useActiveTab(pathname: string): string | null {
+  const lastRealTab = useRef<string | null>(tabRootFor(pathname));
+  const root = tabRootFor(pathname);
+  if (root !== null) lastRealTab.current = root;
+  return root ?? lastRealTab.current;
 }
 
 const TAB_SLOT: Record<string, number> = { "/": 0, "/chats": 1, "/notifications": 3, "/profile": 4 };
@@ -153,6 +170,9 @@ export default function Layout() {
   // tab roots themselves — keep whichever tab we came from lit instead of
   // going dark, so the "you are here" pill doesn't disappear on drill-in.
   const [activeSlot, setActiveSlot] = useState(() => tabSlotFor(pathname));
+  // Which tab renders as active (see useActiveTab — keeps the originating tab
+  // lit on routes that belong to no tab, like another player's profile).
+  const activeTab = useActiveTab(pathname);
   const mainRef = useRef<HTMLElement>(null);
   const { pull, refreshing } = usePullToRefresh(mainRef, refreshAll);
 
@@ -240,7 +260,7 @@ export default function Layout() {
               key={l.to}
               to={l.to}
               className={`rounded-full px-6 py-2.5 text-lg font-semibold transition ${
-                tabRootFor(pathname) === l.to ? "bg-brand text-white" : "text-slate-300 hover:bg-slate-800"
+                activeTab === l.to ? "bg-brand text-white" : "text-slate-300 hover:bg-slate-800"
               }`}
             >
               {l.label}
@@ -352,7 +372,7 @@ export default function Layout() {
 
           {/* Left tabs */}
           {leftTabs.map((t) => (
-            <Tab key={t.to} {...t} active={tabRootFor(pathname) === t.to} />
+            <Tab key={t.to} {...t} active={activeTab === t.to} />
           ))}
 
           {/* Center + button */}
@@ -368,7 +388,7 @@ export default function Layout() {
 
           {/* Right tabs */}
           {rightTabs.map((t) => (
-            <Tab key={t.to} {...t} active={tabRootFor(pathname) === t.to} />
+            <Tab key={t.to} {...t} active={activeTab === t.to} />
           ))}
         </div>
       </nav>

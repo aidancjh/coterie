@@ -115,6 +115,25 @@ export async function getParticipationRate(userId) {
   return Math.round((attended / total) * 100);
 }
 
+/**
+ * Hosted / played counts for a user. Extracted so /api/auth/me can fill the
+ * profile header's stat row without building the whole public profile.
+ */
+export async function getUserGameCounts(userId) {
+  const hosted = Number(
+    (await query("SELECT COUNT(*) AS c FROM games WHERE host_id = $1", [userId])).rows[0].c
+  );
+  const played = Number(
+    (
+      await query(
+        "SELECT COUNT(*) AS c FROM game_members WHERE user_id = $1 AND status = 'player'",
+        [userId]
+      )
+    ).rows[0].c
+  );
+  return { hosted, played };
+}
+
 /** Public profile of any user: basic info + participation stats. */
 export async function getUserProfile(userId) {
   const u = await findUserById(userId);
@@ -142,6 +161,9 @@ export async function getUserProfile(userId) {
   // Real reliability: completed games kept vs. slots bailed on late. Replaces
   // an earlier placeholder (80 + played + hosted*2) that could only ever go up.
   const participationRate = await getParticipationRate(userId);
+  // Host reviews — collected since launch but never surfaced. The profile's
+  // stat row shows the count, so it finally has a home.
+  const hostRating = await getHostRating(userId);
   return {
     id: u.id,
     name: u.name,
@@ -158,6 +180,7 @@ export async function getUserProfile(userId) {
     favoritePositions: parseJsonArr(u.favorite_positions),
     playerRating: rating,
     participationRate,
+    hostRating,
     bannerColor: u.banner_color || "",
     bannerImage: u.banner_image || "",
   };
@@ -533,7 +556,7 @@ export async function adminDeleteFeedback(id) {
 
 // --- Reports queue ---------------------------------------------------------
 
-const REPORT_TYPES = ["game", "highlight", "game_comment", "highlight_comment"];
+const REPORT_TYPES = ["game", "highlight", "game_comment", "highlight_comment", "user"];
 
 /** Create a report. Dedupes open reports per user+target. */
 export async function createReport(reporterId, targetType, targetId, reason) {

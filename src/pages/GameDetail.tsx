@@ -575,7 +575,8 @@ export default function GameDetail() {
         )}
         {game.positionsNeeded && game.positionsNeeded.length > 0 && (
           <InfoRow icon={<TargetIcon className="h-4 w-4" />} label="Positions needed">
-            {game.positionsNeeded.join(", ")}
+            {/* "Any" on its own reads as an unfinished sentence here. */}
+            {game.positionsNeeded.map((p) => (p === "Any" ? "Any position" : p)).join(", ")}
           </InfoRow>
         )}
         {game.costPerPerson > 0 && (

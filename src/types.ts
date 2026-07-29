@@ -75,6 +75,11 @@ export interface Profile {
   favoritePositions?: string[];
   playerRating?: { count: number; avg: number | null };
   participationRate?: number | null;
+  // Host reviews + game counts ride along on /api/auth/me so your own profile
+  // header can render the same stat row as everyone else's.
+  hostRating?: { count: number; avg: number | null };
+  gamesHosted?: number;
+  gamesPlayed?: number;
   bannerColor?: string;
   bannerImage?: string;
 }
@@ -173,6 +178,7 @@ export interface UserProfile {
   favoritePositions?: string[];
   playerRating?: { count: number; avg: number | null };
   participationRate?: number | null;
+  hostRating?: { count: number; avg: number | null };
   bannerColor?: string;
   bannerImage?: string;
   /** Whether the viewing user has blocked this profile's user. */

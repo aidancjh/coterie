@@ -12,6 +12,9 @@ const netHeightOptions = [
   { value: "Mixed (2.35m)", label: "Mixed (2.35m)" },
   { value: "Venue Standard", label: "Venue standard" },
 ];
+// "Any" is the stored value; positionLabel() is what users read. Changing
+// the value itself would orphan every game already saved with "Any".
+const positionLabel = (p: string) => (p === "Any" ? "Any position" : p);
 const positions = ["Any", "Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero"];
 
 // Names of the fields the form can mark invalid, and how to say them in a
@@ -384,12 +387,12 @@ export default function GameForm({
                     active ? "bg-brand text-white" : "bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-700"
                   }`}
                 >
-                  {p}
+                  {positionLabel(p)}
                 </button>
               );
             })}
           </div>
-          <p className="mt-1.5 text-[11px] text-slate-400">"Any" welcomes every position; pick specific ones if you need them.</p>
+          <p className="mt-1.5 text-[11px] text-slate-400">“Any position” welcomes everyone; pick specific ones if you need them.</p>
         </div>
       </div>
 

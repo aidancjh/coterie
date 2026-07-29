@@ -526,7 +526,7 @@ function FilterModal({
               <div className="mb-3 flex items-center justify-between">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Open spots</p>
                 <span className="text-xs font-semibold text-slate-200">
-                  {f.minOpenSpots === 0 ? "Any" : `${f.minOpenSpots}+ open`}
+                  {f.minOpenSpots === 0 ? "Any number" : `${f.minOpenSpots}+ open`}
                 </span>
               </div>
               <div

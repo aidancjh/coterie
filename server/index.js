@@ -263,11 +263,25 @@ app.get(
     // participationRate rides along with playerRating: the signed-in user's own
     // profile page renders straight from this payload, so without it the user
     // sees "—" for their own reliability while everyone else sees the number.
-    const [playerRating, participationRate] = await Promise.all([
+    // These three drive the profile header's stat row, which renders straight
+    // from AuthContext — without them the signed-in user sees blanks where
+    // everyone else's profile shows numbers.
+    const [playerRating, participationRate, hostRating, counts] = await Promise.all([
       repo.getPlayerRating(req.userId),
       repo.getParticipationRate(req.userId),
+      repo.getHostRating(req.userId),
+      repo.getUserGameCounts(req.userId),
     ]);
-    res.json({ user: { ...repo.publicUser(user), playerRating, participationRate } });
+    res.json({
+      user: {
+        ...repo.publicUser(user),
+        playerRating,
+        participationRate,
+        hostRating,
+        gamesHosted: counts.hosted,
+        gamesPlayed: counts.played,
+      },
+    });
   })
 );
 
