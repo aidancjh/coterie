@@ -117,7 +117,7 @@ Ordered by priority. Update status inline as these move.
 | 21 | **The consumer feedback / bug form is unreachable.** `submitFeedback()` in `src/services/gamesService.ts`, `POST /api/feedback`, the `feedback` table and the admin Feedback inbox all still work, but `Settings.tsx` lost the rows that opened the form in the July 2026 frontend change (its `panel` state still has `"feedback" \| "bug"` cases with nothing to trigger them). Testers currently have no in-app way to report anything. | ⬜ Not started |
 | 22 | **Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype`** — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy. | ⬜ Not started |
 | 23 | **Mirror the 2026-07-30 price-display fix to `coterie-prototype`** — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`. | ⬜ Not started |
-| 24 | **Mirror the 2026-07-30 slogan change to `coterie-prototype`** — "VOLLEYBALL FOR ALL" replacing "Find your players. Fill your games." in both waitlist layouts' header kicker, `Auth.tsx`, `index.html` `<title>`, and the PWA manifest name. | ⬜ Not started |
+| 25 | **`README.md` still has pre-rebrand drift** — brand colour listed as blue `#0b6ecd` (actual: red `#d92632`) and typeface listed as `Inter` (actual: Public Sans), a few lines below the 2026-07-30 name/tagline fix. Also references `Start Vybe.bat` by its literal filename — left alone since renaming it could break an existing desktop shortcut. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 
 ---
@@ -195,6 +195,50 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Old slogan swept from every domain and doc (2026-07-30):**
+- Aidan, in follow-up: "CHANGE EVERYTHING TO VOLLEYBALL FOR ALL... check every
+  possible domain... including the docs and whatever." The earlier pass (above)
+  only covered the live app; this pass covered everything else.
+- ✅ Full case-insensitive repo grep for the phrase, then fixed every real hit:
+  - **`README.md`, `STORE.md`, `STORE_LISTING.md`** — all three still opened
+    with "Vybe — find your players, fill your games." `STORE_LISTING.md`
+    especially matters: it's paste-ready App Store/Play Store submission copy
+    with character-limit budgets noted per field. Recomputed exact lengths
+    rather than guess — Play short description 68/80 chars, Apple subtitle
+    now just "Volleyball for all" at 18/30 chars. `STORE.md`'s `npx cap init
+    Vybe …` example command fixed too (would have named the native app shell
+    wrong if run as written).
+  - **`scripts/generate-icons.mjs`** — deleted rather than patched. It baked
+    the old tagline into a generated OG image, but it was already fully
+    superseded by `scripts/gen-logo.mjs` (real logo artwork vs. this script's
+    placeholder red-tile mark) and depended on `sharp`, which `gen-logo.mjs`'s
+    own header comment explains was dropped because `sharp`'s native binary
+    breaks under this OneDrive-synced `node_modules`. Confirmed zero other
+    references before deleting; `sharp` removed from `package.json`
+    (`npm uninstall`) since nothing else used it.
+  - **`coterie-prototype`** (preview.coterie.com.de) — same header-kicker,
+    Auth-subtitle and `<title>` fix as the main app, committed and pushed to
+    its own GitHub repo, then **deployed live** via `railway up --service web
+    --ci` (confirmed linked to project `coterie-preview` / service `web`
+    first). Its meta description also got the main app's tone-of-voice
+    description swapped in — its old one ("Coterie helps you find players and
+    fill your volleyball games…") was a paraphrase of the same banned pattern,
+    not just stale wording. Task #24 (queued below) is now done, not deferred.
+  - `Coterie-Business-Overview.docx` re-verified clean (zero matches in the
+    unzipped XML) — already fixed in the prior pass.
+  - Checked and left alone: `Content creation plan for Volleyball app.docx`
+    (verified clean, zero matches). `PROJECT_STATE.md`'s own changelog entries
+    documenting this phrase's removal are historical record, not live copy —
+    correctly left as-is. `LAUNCH_AUDIT.md`, `SHARE_WITH_TESTERS.md`,
+    `APP_STORE_PROMPTS.md`, `OPERATIONS.md`, `DEPLOY.md` don't contain the
+    phrase at all (only matched an earlier broad "Vybe" search, not this one).
+- **Not done, flagged rather than silently expanded:** `README.md` still has a
+  wrong brand colour (`#0b6ecd` blue — actual is red `#d92632`) and wrong
+  typeface (`Inter` — actual is Public Sans) a few lines below the fix above,
+  and `Start Vybe.bat` keeps its filename since renaming it could break
+  Aidan's own desktop shortcut without his OK. Separate pre-existing drift,
+  not part of this ask — logged as #25.
 
 **Slogan shipped: "VOLLEYBALL FOR ALL" (2026-07-30):**
 - Aidan asked to confirm the app's category (pickup volleyball, not really

@@ -1,6 +1,6 @@
-# Vybe — find your players, fill your games
+# Coterie — Volleyball for all
 
-Vybe is a pickup-volleyball app: post a game, set how many slots you need, and
+Coterie is a pickup-volleyball app: post a game, set how many slots you need, and
 let players find and claim the open spots. Browse games, join with one tap, chat
 per game, get in-app notifications, follow player profiles, and add games to your
 calendar.
