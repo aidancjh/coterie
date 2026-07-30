@@ -168,29 +168,92 @@ function clipProtrusions(img) {
   return { w, h, data: d };
 }
 
-// Alpha-weighted box downscale.
-function downscale(img, tw, th) {
+/**
+ * Separable Lanczos-3 resample, in premultiplied alpha.
+ *
+ * Replaces an earlier box filter that snapped every output pixel to whole source
+ * pixels. That had two visible costs on a logo: each output pixel averaged a
+ * different *number* of source pixels (3 or 4 at a 3.1× reduction), which puts a
+ * stair-step on a circle's edge; and when the target was larger than the source
+ * it collapsed to a single source pixel — nearest-neighbour — so any upscale came
+ * out blocky. Fractional weights fix both, and premultiplying keeps transparent
+ * pixels from bleeding their colour into the edge.
+ */
+function resample(img, tw, th) {
   const { w: sw, h: sh, data: s } = img;
+  const SUPPORT = 3;
+  const lanczos = (x) => {
+    if (x === 0) return 1;
+    const a = Math.abs(x);
+    if (a >= SUPPORT) return 0;
+    const px = Math.PI * a;
+    return (SUPPORT * Math.sin(px) * Math.sin(px / SUPPORT)) / (px * px);
+  };
+  // Weights for one axis: sample spacing >1 when reducing, so the kernel widens
+  // to average the pixels being thrown away instead of point-sampling them.
+  const axis = (srcLen, dstLen) => {
+    const scale = srcLen / dstLen;
+    const step = Math.max(1, scale);
+    const radius = SUPPORT * step;
+    const rows = [];
+    for (let d = 0; d < dstLen; d++) {
+      const centre = (d + 0.5) * scale;
+      const from = Math.max(0, Math.floor(centre - radius));
+      const to = Math.min(srcLen - 1, Math.ceil(centre + radius));
+      const ws = [];
+      let total = 0;
+      for (let i = from; i <= to; i++) {
+        const wt = lanczos((i + 0.5 - centre) / step);
+        ws.push(wt);
+        total += wt;
+      }
+      rows.push({ from, ws, total: total || 1 });
+    }
+    return rows;
+  };
+
+  // Pass 1: horizontal, into premultiplied floats.
+  const cols = axis(sw, tw);
+  const tmp = new Float64Array(tw * sh * 4);
+  for (let y = 0; y < sh; y++)
+    for (let tx = 0; tx < tw; tx++) {
+      const { from, ws, total } = cols[tx];
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let k = 0; k < ws.length; k++) {
+        const i = (y * sw + from + k) * 4;
+        const al = s[i + 3] / 255, wt = ws[k];
+        r += s[i] * al * wt; g += s[i + 1] * al * wt; b += s[i + 2] * al * wt;
+        a += al * wt;
+      }
+      const o = (y * tw + tx) * 4;
+      tmp[o] = r / total; tmp[o + 1] = g / total; tmp[o + 2] = b / total; tmp[o + 3] = a / total;
+    }
+
+  // Pass 2: vertical, then unpremultiply. Lanczos can overshoot slightly at a
+  // hard edge, so everything is clamped back into range.
+  const rows = axis(sh, th);
   const out = Buffer.alloc(tw * th * 4);
   for (let ty = 0; ty < th; ty++) {
-    const y0 = Math.floor((ty * sh) / th), y1 = Math.max(y0 + 1, Math.floor(((ty + 1) * sh) / th));
-    for (let tx = 0; tx < tw; tx++) {
-      const x0 = Math.floor((tx * sw) / tw), x1 = Math.max(x0 + 1, Math.floor(((tx + 1) * sw) / tw));
-      let sA = 0, sR = 0, sG = 0, sB = 0, n = 0;
-      for (let y = y0; y < y1; y++)
-        for (let x = x0; x < x1; x++) {
-          const i = (y * sw + x) * 4, a = s[i + 3];
-          sA += a; sR += s[i] * a; sG += s[i + 1] * a; sB += s[i + 2] * a; n++;
-        }
-      const o = (ty * tw + tx) * 4;
-      out[o + 3] = Math.round(sA / n);
-      out[o] = sA ? Math.round(sR / sA) : 0;
-      out[o + 1] = sA ? Math.round(sG / sA) : 0;
-      out[o + 2] = sA ? Math.round(sB / sA) : 0;
+    const { from, ws, total } = rows[ty];
+    for (let x = 0; x < tw; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let k = 0; k < ws.length; k++) {
+        const i = ((from + k) * tw + x) * 4, wt = ws[k];
+        r += tmp[i] * wt; g += tmp[i + 1] * wt; b += tmp[i + 2] * wt; a += tmp[i + 3] * wt;
+      }
+      r /= total; g /= total; b /= total; a /= total;
+      const al = Math.min(1, Math.max(0, a));
+      const o = (ty * tw + x) * 4;
+      const px = (v) => Math.min(255, Math.max(0, Math.round(al ? v / al : 0)));
+      out[o] = px(r); out[o + 1] = px(g); out[o + 2] = px(b);
+      out[o + 3] = Math.round(al * 255);
     }
   }
   return { w: tw, h: th, data: out };
 }
+
+// Kept as the name every call site already uses; it resizes either direction now.
+const downscale = resample;
 
 // Solid opaque canvas.
 function canvas(w, h, [r, g, b]) {
@@ -478,12 +541,16 @@ function normalizeGaps(img, { min, max }) {
 
   // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
   // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.
-  w(E("coterie-logo-tile-white-512.png"), iconTile(512, 0.18));
+  // 1024 rather than 512 because these get zoomed into — the mark artwork is
+  // 1024², so the inner 656px is still a reduction and stays crisp.
+  const TILE = 1024, PAD = 0.18;
+  const inner = Math.round(TILE * (1 - 2 * PAD));
+  const off = Math.round((TILE - inner) / 2);
+  w(E("coterie-logo-tile-white-1024.png"), iconTile(TILE, PAD));
   {
-    const tile = canvas(512, 512, RED);
-    const inner = Math.round(512 * (1 - 2 * 0.18));
-    over(tile, downscale(knockout(mark), inner, inner), Math.round((512 - inner) / 2), Math.round((512 - inner) / 2));
-    w(E("coterie-logo-tile-red-512.png"), tile);
+    const tile = canvas(TILE, TILE, RED);
+    over(tile, downscale(knockout(mark), inner, inner), off, off);
+    w(E("coterie-logo-tile-red-1024.png"), tile);
   }
 }
 

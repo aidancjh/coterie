@@ -192,6 +192,32 @@ Ordered by priority. Update status inline as these move.
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
 
+**Image resampling rewritten — every generated logo asset (2026-07-30):**
+- Aidan: zoomed in, the logo "looks slightly pixelated, doesn't look as rounded".
+  He was right, and the cause was in `gen-logo.mjs`'s resizer, so it affected
+  **every** generated asset, not just the exports.
+- The old `downscale()` was a box filter that snapped each output pixel to whole
+  source pixels. Two consequences: at a 3.1× reduction each output pixel averaged
+  3 *or* 4 source pixels depending on where it landed, which puts a stair-step on
+  a circle's edge; and when the target was **larger** than the source it collapsed
+  to one source pixel — plain nearest-neighbour. The cover banner scales the
+  wordmark's 188px-tall ink to 200px, so the curves there were being duplicated
+  pixel-for-pixel. That is what he saw.
+- ✅ Replaced with `resample()`: separable **Lanczos-3** with fractional weights,
+  in premultiplied alpha (so transparent pixels can't bleed colour into the
+  edge), kernel widened by the reduction factor when shrinking, and clamped on
+  output because Lanczos overshoots slightly at a hard edge. `downscale` is now an
+  alias, so all existing call sites — app icons, maskable, favicon, OG image,
+  splash — got the fix too. Verified by magnifying the same region of the old and
+  new files at the same scale: staircase → smooth anti-aliased curve.
+- ✅ Logo tile exports went 512 → **1024** (the mark artwork is 1024², so the
+  inner 656px is still a reduction). The 512 files are deleted, not kept
+  alongside.
+- Cost worth knowing: the inlined splash data URI grew 5 KB → 9 KB, because
+  smooth gradients compress worse than flat nearest-neighbour blocks.
+  `index.html` is 13.8 KB total — still far better than the 74 KB network fetch
+  it replaced.
+
 **Brand exports for outside-the-app use (2026-07-30):**
 - Aidan needed a cover image and a logo image for the Tally volleyball survey.
   `scripts/gen-logo.mjs` step 8 now also writes **`brand-exports/`**, so these
