@@ -167,7 +167,7 @@ export default function Onboarding() {
             disabled={busy}
             className="w-full rounded-xl bg-brand py-3.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-40"
           >
-            {busy ? "Setting up…" : "Let's go!"}
+            {busy ? "Setting up…" : "Start browsing games"}
           </button>
           <button
             onClick={() => handleFinish({ skip: true })}
@@ -186,10 +186,11 @@ export default function Onboarding() {
       <div className="mb-7 flex flex-col items-center text-center">
         <Logo className="h-10 w-10" />
         <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-white">
-          Welcome to Coterie!
+          Welcome to Coterie
         </h1>
         <p className="mt-1.5 text-sm text-slate-400">
-          What's your volleyball level? We'll use this to show you the right games.
+          Where's your game right now? We only use this to show you games at your
+          level — and you can change it any time.
         </p>
       </div>
 
@@ -238,6 +239,11 @@ export default function Onboarding() {
 
       {/* Continue button */}
       <div className="mt-6">
+        {/* Inclusive by default: the interviews showed players can't reliably
+            rate themselves, so say plainly that a wrong guess costs nothing. */}
+        <p className="mb-3 text-center text-xs text-slate-400">
+          Not sure? Pick the closest one — plenty of games are open to all levels.
+        </p>
         <button
           onClick={() => { if (selected) setStep(2); }}
           disabled={!selected}

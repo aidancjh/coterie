@@ -131,3 +131,27 @@ On startup the server calls, in order: `initSchema()` → `seedIfEmpty()` → `s
 - **Game time logic**: `date` is ISO date string (`2026-06-20`), `time`/`endTime` are 24h strings (`"18:30"`). `isPast(date)` checks if date < today.
 - **Tailwind**: Using Tailwind CSS 4.0 (Vite plugin, not PostCSS). Brand color is `text-brand` / `bg-brand` — **red `#d92632`**, defined as CSS variable `--color-brand` in `src/index.css` (with `--color-brand-dark: #b31e29`). The app is **light-themed**: components still use dark-slate utility classes, but `src/index.css` inverts the slate scale via `@theme` and remaps `.text-white` to dark ink (white stays white on colored surfaces). The **admin app keeps the old dark/blue theme** via its own stylesheet `src/admin/admin.css` (imported by `src/admin-main.tsx`), so consumer theme changes don't touch admin.
 - **Branding**: the product is **Coterie** everywhere (UI, PWA manifest, emails, ICS, OG tags) as of 2026-07-23 — the Vybe name is retired. Logo is `BrandMark` in `src/components/icons.tsx` (red tile + white C); PNG icons regenerate via `node scripts/generate-icons.mjs`.
+
+## Brand voice — Convenient · Reliable · Inclusive
+
+Aidan's tone of voice is **strictly these three adjectives** (set 2026-07-30, replacing
+the earlier Open / Reassuring / Plain). They are not a mood board — they are a test.
+**Every user-facing string** (UI, empty states, buttons, emails, notifications,
+push, store listings, marketing pages) must do at least one of them and contradict
+none. If a line does none of the three, cut it.
+
+| Trait | What it means in copy | Do | Don't |
+|---|---|---|---|
+| **Convenient** | The reader can act immediately. Verb first, one idea, no hunting. Say how small the effort is when it's genuinely small. | "Join game", "Post a game — takes a minute", "Tap Join and you're on the roster" | "Get started", "Manage your participation", multi-clause sentences |
+| **Reliable** | Say exactly what happens next, when, and by what rule. Numbers over adjectives. Never blame the user, never expose our plumbing. | "You'll be moved in automatically the moment a spot opens", "We'll remind you the day before", "Only leaving within 24 h of start counts against your participation" | "Waking up the server", "Something went wrong", "Don't worry!", vague "soon" |
+| **Inclusive** | Assume no insider knowledge and no minimum standard. Beginners are the default reader, not an edge case. Explain volleyball terms in place. | "Every level welcome", "Not sure? Pick the closest — you can change it any time", "Setter, libero — or just Any" | "for real players", "advanced only", jargon with no gloss, anything implying a circle you're outside of |
+
+Practical rules that fall out of this: no exclamation marks except at a genuine
+celebration (a confirmed join); never state a rule in the UI that the code doesn't
+enforce (a wrong FAQ answer is a reliability failure, not a typo); prefer stating
+the mechanism ("auto-promoted from the waitlist") over reassurance ("don't worry").
+
+The three **community values** (friendly, supportive, vocal, adaptable) describe the
+players, not the product's voice — don't confuse the two. Full brand record, with
+mission/positioning/audience, lives in `Coterie-Business-Overview.docx` (one level
+above this repo).

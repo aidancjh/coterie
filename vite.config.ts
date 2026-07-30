@@ -18,7 +18,7 @@ export default defineConfig({
         name: "Coterie — Find your players",
         short_name: "Coterie",
         description:
-          "Coterie helps you find players and fill your volleyball games. Post a game, set your slots, and fill the open spots.",
+          "Find a volleyball game near you and claim a spot in seconds. Every game shows its skill level, its cost and who's already playing — and every level is welcome.",
         theme_color: "#ffffff",
         background_color: "#ffffff",
         display: "standalone",

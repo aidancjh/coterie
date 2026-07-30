@@ -3,6 +3,7 @@
 // changes to how it reads data. All functions are async (Postgres is networked).
 import crypto from "node:crypto";
 import { query, uid, withTransaction } from "./db.js";
+import { prettyTime } from "./email.js";
 
 // --- Users ----------------------------------------------------------------
 
@@ -281,13 +282,22 @@ export async function sendDueReminders() {
     .toISOString()
     .slice(0, 10);
   const { rows } = await query(
-    "SELECT id, title FROM games WHERE date = $1 AND reminder_sent = FALSE",
+    "SELECT id, title, time, location FROM games WHERE date = $1 AND reminder_sent = FALSE",
     [tomorrow]
   );
   let notified = 0;
   for (const g of rows) {
     const members = await memberUserIds(g.id);
-    await notifyUsers(members, "reminder", `Reminder: "${g.title}" is tomorrow`, g.id);
+    // Carry the time and venue in the message itself: a reminder that makes you
+    // open the game to find out when and where isn't much of a reminder.
+    const when = g.time ? ` at ${prettyTime(g.time)}` : "";
+    const where = g.location ? ` · ${g.location}` : "";
+    await notifyUsers(
+      members,
+      "reminder",
+      `Tomorrow${when}: "${g.title}"${where}`,
+      g.id
+    );
     await query("UPDATE games SET reminder_sent = TRUE WHERE id = $1", [g.id]);
     notified += members.length;
   }

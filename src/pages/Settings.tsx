@@ -17,7 +17,19 @@ import ErrorModal from "../components/ErrorModal";
 const FAQ = [
   {
     q: "How do I join a game?",
-    a: "Open any game from the Browse tab and tap Join. If the game is full you'll be placed on the waitlist and automatically promoted when a spot opens.",
+    a: "Open any game from the Browse tab and tap Join. That's it — no request to approve, no DM to send. If the game is full you go on the waitlist and are moved in automatically the moment a spot opens.",
+  },
+  {
+    q: "I'm a beginner. Can I really join?",
+    a: "Yes. Every game states the level it's for, and games marked All Levels or Beginner are meant for exactly this. Nobody checks your credentials — pick a game at your level and turn up.",
+  },
+  {
+    q: "What is the participation rate on my profile?",
+    a: "The share of games you claimed a spot for and actually saw through. Only leaving within 24 hours of the start counts against it — leaving earlier is free, because freeing the spot early is the helpful thing to do. It stays blank until you have some history.",
+  },
+  {
+    q: "How do I pay for the court?",
+    a: "Directly to the host, however they ask — Coterie doesn't handle money. The cost per person is shown on the game before you join, so there are no surprises on the day.",
   },
   {
     q: "I have 6 friends — do I need to fill in all 12 spots myself?",
@@ -25,15 +37,15 @@ const FAQ = [
   },
   {
     q: "What happens when I leave a game?",
-    a: "Your spot is freed and the first person on the waitlist is automatically promoted and notified.",
+    a: "Your spot is freed and the first person on the waitlist is moved in and notified automatically — you don't have to find a replacement. Only leaving within 24 hours of the start counts against your participation rate.",
   },
   {
     q: "Can I delete a game I posted?",
     a: "Yes. Open the game, scroll to the bottom, and tap Delete game. All members will receive a cancellation notification.",
   },
   {
-    q: "How do game reviews work?",
-    a: "30 minutes after a game ends, every player who joined (but didn't host) gets a prompt to leave a star rating and optional comment for the host.",
+    q: "How do reviews and ratings work?",
+    a: "From 2 hours after a game ends until 7 days later, every player who joined (but didn't host) is prompted once to rate the host 1–5 with a short comment. Separately, you can rate the teammates you played with — those ratings are anonymous and shown only as an average.",
   },
   {
     q: "Can I reset my password?",

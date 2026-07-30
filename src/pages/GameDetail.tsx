@@ -105,6 +105,14 @@ export default function GameDetail() {
   const interested = game.interestedIds.includes(me.id);
   const past = isPast(game.date);
 
+  // Whether leaving now would count against the player's participation rate.
+  // Deliberately mirrors hoursUntilStart() + LATE_LEAVE_HOURS in server/repo.js,
+  // including its UTC-naive parse of date+time, so the warning shown here can
+  // never disagree with what the server actually records.
+  const hoursToStart =
+    (new Date(`${game.date}T${game.time || "00:00"}:00Z`).getTime() - Date.now()) / 3600000;
+  const leavingCountsLate = hoursToStart < 24;
+
   const guarded = (fn: () => Promise<unknown>) => async () => {
     if (!user) { navigate("/auth", { state: { from: location.pathname } }); return; }
     setError("");
@@ -291,10 +299,13 @@ export default function GameDetail() {
                   <h2 id="join-modal-title" className="text-3xl font-bold leading-tight text-white">
                     {joinModal === "confirmed" ? "You're In!" : "You're on the List!"}
                   </h2>
+                  {/* Say what happens next, not just that it worked — both of
+                      these are promises the app actually keeps (join email +
+                      the ~24h reminder job, and auto-promotion on any drop). */}
                   <p className="mt-2 text-sm text-slate-400">
                     {joinModal === "confirmed"
-                      ? <>Your spot for <strong className="text-slate-200">{game.title}</strong> is confirmed.</>
-                      : <>You're on the waitlist for <strong className="text-slate-200">{game.title}</strong>. We'll notify you if a spot opens.</>}
+                      ? <>Your spot for <strong className="text-slate-200">{game.title}</strong> is confirmed. The details are in your inbox, and we'll remind you the day before.</>
+                      : <>You're on the waitlist for <strong className="text-slate-200">{game.title}</strong>. If anyone drops out you're moved in automatically and notified — no need to check back.</>}
                   </p>
                 </div>
                 {/* Divider */}
@@ -355,10 +366,14 @@ export default function GameDetail() {
               <h2 id="leave-modal-title" className="text-2xl font-bold leading-tight text-white">
                 {waiting ? "Leave waitlist?" : "Leave this game?"}
               </h2>
+              {/* The rule is stated plainly rather than left to be discovered
+                  from a dropped participation rate — see LATE_LEAVE_HOURS. */}
               <p className="mt-1.5 text-sm text-slate-400">
                 {waiting
-                  ? "You'll lose your waitlist position."
-                  : "Your spot will open up for someone else."}
+                  ? "You'll lose your place in the queue. Waitlist spots don't affect your participation rate."
+                  : leavingCountsLate
+                  ? "The next player on the waitlist takes your spot automatically. This close to the start it does count against your participation rate — but freeing the spot still beats not turning up."
+                  : "The next player on the waitlist takes your spot automatically. Leaving this far ahead doesn't affect your participation rate."}
               </p>
             </div>
             <div className="mx-8 my-4 h-px bg-slate-800" />

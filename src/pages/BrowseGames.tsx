@@ -293,7 +293,7 @@ export default function BrowseGames() {
             <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
               {slow && (
                 <p className="text-center text-xs text-slate-400">
-                  ⏳ Waking up the server — hang tight…
+                  Still loading games — this can take a few seconds.
                 </p>
               )}
               <GameCardSkeleton />
@@ -312,7 +312,14 @@ export default function BrowseGames() {
             </div>
           ) : visible.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-800 py-12 text-center">
-              <p className="text-sm text-slate-400">No games match your filters.</p>
+              {/* Two different situations, so two different sentences — telling
+                  someone their filters are too narrow when they have no filters
+                  set is exactly the kind of small lie the voice rules out. */}
+              <p className="text-sm text-slate-400">
+                {activeCount > 0
+                  ? "No games match these filters. Widening the skill level or the time window usually finds a few."
+                  : "No upcoming games posted yet. Post one and players can claim their spots straight away."}
+              </p>
               {activeCount > 0 ? (
                 <button
                   onClick={() => setFilters(DEFAULT_FILTERS)}
@@ -325,7 +332,7 @@ export default function BrowseGames() {
                   onClick={() => navigate("/create")}
                   className="mt-3 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white"
                 >
-                  Post your own game
+                  Post a game
                 </button>
               )}
             </div>
@@ -364,10 +371,10 @@ export default function BrowseGames() {
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-800 py-12 text-center">
             <p className="text-sm text-slate-400">
               {view === "hosting"
-                ? "You're not hosting any games yet."
+                ? "You're not hosting yet. Posting a game takes a minute, and players can claim spots the moment it's live."
                 : view === "past"
-                ? "No past games."
-                : "You haven't joined any upcoming games."}
+                ? "No games played yet. Once you've played one, it shows up here with your teammates to rate."
+                : "No upcoming games yet. Every game says what level it's for, so you can see what suits you before you join."}
             </p>
             {view === "hosting" ? (
               <button

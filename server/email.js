@@ -9,6 +9,10 @@ import * as Sentry from "@sentry/node";
 //   MAIL_FROM="Coterie <hello@coterie.com.de>"
 export const MAIL_FROM = process.env.MAIL_FROM || "Coterie <onboarding@resend.dev>";
 
+// Coterie brand red — matches --color-brand in src/index.css. Email clients
+// can't read CSS variables, so it's repeated here; keep the two in step.
+const BRAND = "#d92632";
+
 export function esc(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -50,9 +54,9 @@ export async function sendPasswordResetEmail(user, resetLink) {
       to: [user.email],
       subject: "Reset your Coterie password",
       html: `<p>Hi ${esc(user.name)},</p>
-             <p>You requested a password reset.</p>
-             <p><a href="${resetLink}" style="background:#E8734A;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-family:sans-serif;">Reset password</a></p>
-             <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+             <p>Tap the button to set a new password. It takes a few seconds.</p>
+             <p><a href="${resetLink}" style="background:${BRAND};color:white;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-family:sans-serif;">Set a new password</a></p>
+             <p>The link works for 1 hour and can be used once. If you didn't ask for it, nothing has changed on your account — you can ignore this email.</p>
              <p>— The Coterie team</p>`,
     }),
   });
@@ -73,20 +77,22 @@ export function sendJoinConfirmationEmail({ user, game, appUrl, calLink }) {
   const timeDisplay = game.endTime
     ? `${prettyTime(game.time)} – ${prettyTime(game.endTime)}`
     : prettyTime(game.time);
-  const brand = "#d92632"; // Coterie brand red — matches --color-brand in src/index.css
+  const brand = BRAND;
   const row = (label, value) =>
     `<tr><td style="padding:6px 0;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#9ca3af;">${label}</td>` +
     `<td style="padding:6px 0;font-size:14px;font-weight:600;color:#111827;text-align:right;">${value}</td></tr>`;
   const emailHtml = [
     `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>`,
-    `<body style="margin:0;padding:24px 16px;background:#f5ede3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">`,
+    // Neutral light page behind the card. Was #f5ede3, a cream left over from
+    // the pre-Coterie palette — the app is white/red now.
+    `<body style="margin:0;padding:24px 16px;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">`,
     `<div style="max-width:460px;margin:0 auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08);">`,
     `<div style="text-align:center;padding:28px 32px 0;">`,
     `<div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:${brand};border-radius:50%;font-size:26px;color:#fff;">&#10003;</div>`,
     `</div>`,
     `<div style="text-align:center;padding:12px 32px 0;">`,
     `<h1 style="margin:0;font-size:32px;font-weight:800;color:#111827;">You're In!</h1>`,
-    `<p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Hi ${esc(user.name)}, your spot for <strong style="color:#374151;">${esc(game.title)}</strong> is confirmed.</p>`,
+    `<p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Hi ${esc(user.name)}, your spot for <strong style="color:#374151;">${esc(game.title)}</strong> is confirmed. We'll remind you the day before.</p>`,
     `</div>`,
     `<div style="margin:20px 32px 0;height:1px;background:#f3f4f6;"></div>`,
     `<div style="padding:16px 32px 0;"><table style="width:100%;border-collapse:collapse;">`,

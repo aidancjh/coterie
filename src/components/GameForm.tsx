@@ -342,7 +342,9 @@ export default function GameForm({
           />
         </div>
         <p className="mt-1 text-xs text-slate-400">
-          What each player pays to join. Leave blank if the game is free.
+          Shown on the game before anyone joins, so nobody is surprised on the
+          day. Players pay you directly — Coterie doesn't handle the money.
+          Leave blank if the game is free.
         </p>
       </Field>
 

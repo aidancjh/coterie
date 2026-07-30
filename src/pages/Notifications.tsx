@@ -117,8 +117,9 @@ export default function Notifications() {
             <BellIcon className="h-6 w-6" />
           </IconChip>
           <p className="mt-2 text-sm text-slate-400">
-            Nothing yet. You'll be notified when someone joins, leaves, or
-            comments on your games.
+            Nothing yet. You'll hear from us when someone joins or leaves your
+            game, when a waitlist spot opens up for you, and the day before
+            every game you're in.
           </p>
         </div>
       ) : (

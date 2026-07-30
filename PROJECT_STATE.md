@@ -56,6 +56,8 @@ Full detail lives in `CLAUDE.md`. Ops/env vars in `OPERATIONS.md`. Deploy in `DE
 
 | Decision | Rationale | Date |
 |---|---|---|
+| **Tone of voice is strictly three adjectives: Convenient · Reliable · Inclusive** — replaces the earlier Open / Reassuring / Plain. Every user-facing string (UI, emails, notifications, store listings, marketing) must do at least one and contradict none; rules + do/don't table now live in `CLAUDE.md` under "Brand voice". | Aidan's own words, from the updated designer brief ("Jabez (App design)"). The three are also his answer to what people should think of the app, so voice and product attributes deliberately share two words. | 2026-07-30 |
+| **Both sides of the marketplace are primary** — the player who can't find a game *and* the host who can't fill one. Beginners move from tertiary to secondary. | Aidan: "both seem important & primary to me" — neither side survives without the other. | 2026-07-30 |
 | **Main app IS Coterie now** — red/light preview frontend adopted wholesale; Vybe name retired everywhere (UI, PWA, emails, OG). Marketplace + highlight posting removed to match the preview exactly. Resolves the Vybe/Coterie naming split. | Aidan prefers the preview's UI; one look across both apps. | 2026-07-23 |
 | **Keep the custom Express backend** — do NOT move to Supabase/Firebase | The client can never reach the DB, so a missed rule is one buggy route, not a world-readable table. Fails closed by default. | 2026-07-20 |
 | **Do NOT add Postgres RLS** | RLS needs per-request DB roles; the app connects as one owner role for every request, and owners bypass RLS. High complexity in the hot path, defends a threat already closed structurally. | 2026-07-20 |
@@ -110,6 +112,8 @@ Ordered by priority. Update status inline as these move.
 | 17 | Stray local branch `main-aidan` — confirmed fully merged into `main`, no unique commits, deleted. | ✅ Fixed 2026-07-20 |
 | 18 | **ESLint ignores `server/` and `tests/` entirely** — the whole backend has never been linted. `npm run lint` only covers `src/`. Worth widening the config. | ⬜ Not started |
 | 19 | Stale remote branches on origin: `main-aidan`, `cleanup/phases-0-2-hygiene-reliability-a11y`, `worktree-admin-split-analytics`. Deleting remote branches needs Aidan's OK. | ⬜ Awaiting Aidan |
+| 21 | **The consumer feedback / bug form is unreachable.** `submitFeedback()` in `src/services/gamesService.ts`, `POST /api/feedback`, the `feedback` table and the admin Feedback inbox all still work, but `Settings.tsx` lost the rows that opened the form in the July 2026 frontend change (its `panel` state still has `"feedback" \| "bug"` cases with nothing to trigger them). Testers currently have no in-app way to report anything. | ⬜ Not started |
+| 22 | **Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype`** — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 
 ---
@@ -187,6 +191,57 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Tone-of-voice pass across the app + brand record (2026-07-30):**
+- Trigger: Aidan updated the designer brief (`Jabez (App design) (1).docx`, in
+  Downloads) and fixed the tone of voice at **Convenient · Reliable ·
+  Inclusive**, asking that the whole app be about those three.
+- ✅ `CLAUDE.md` now carries a **Brand voice** section — the three traits, a
+  do/don't table, and the rules that fall out of them (no exclamation marks
+  outside a genuine celebration; never state a rule the code doesn't enforce;
+  state the mechanism rather than reassurance). This is the reference for any
+  future copy, so the voice survives sessions and machines.
+- ✅ Copy changed, by trait rather than wholesale rewriting — lines that already
+  worked were left alone:
+  - **Onboarding**: level question reframed ("you can change it any time") and a
+    new line under the cards — "Not sure? Pick the closest one — plenty of games
+    are open to all levels." Directly answers the interview finding that players
+    can't rate themselves. "Let's go!" → "Start browsing games".
+  - **Browse**: the empty state told people to widen filters they hadn't set —
+    now two separate sentences for "no matches" vs "nothing posted yet". Empty
+    Upcoming/Hosting/Past states say what to do next. The cold-start line
+    "⏳ Waking up the server" is gone (never expose our plumbing).
+  - **Game detail**: join and waitlist confirmations now say what happens next
+    (email + day-before reminder; automatic promotion, no need to check back).
+    The leave dialog states the participation rule, and computes whether *this*
+    leave counts late by mirroring `hoursUntilStart()` + `LATE_LEAVE_HOURS` from
+    `server/repo.js` — same UTC-naive parse, so UI and server can't disagree.
+  - **Settings FAQ**: four new answers (beginners, participation rate, paying
+    the host, joining) and two **factual corrections** — reviews open 2 h after
+    a game (not "30 minutes"), and the comment is required, not optional.
+  - **Reminder notification** now carries the time and venue: "Tomorrow at
+    6:30 PM: "Friday Night Indoor 6s" · Bedok Sports Hall". `repo.js` imports
+    `prettyTime` from `email.js` (no cycle — email.js imports nothing local).
+  - **Emails**: join confirmation promises the day-before reminder; reset email
+    explains the 1-hour single-use link and that nothing changed if it wasn't
+    you. Also fixed two pre-rebrand colours still shipping — the reset button's
+    Vybe coral `#E8734A` and the join email's cream `#f5ede3` body.
+  - **Cost field** in the game form now says the price is shown before anyone
+    joins and that players pay the host directly.
+  - **Meta description** (index.html + PWA manifest) rewritten to carry all
+    three traits.
+- ✅ `Coterie-Business-Overview.docx` updated in place (Word opens it clean, 25
+  pages): tone of voice replaced, brand attributes restated in Aidan's words
+  (Convenient / Reliable / Abundant / Available 24/7, last two still flagged
+  aspirational), audience made co-primary, positioning now says "networking app"
+  and carries the appropriate-skill-level goal, the 8 tagline candidates + the 4
+  shortlisted recorded, competitor list ranked by how players actually find
+  games (adds ActiveSG Sports Interest Groups), global ambition noted, designer
+  brief linked. Two stale claims corrected: the Highlights *feed* and the
+  Settings *feedback form* no longer exist.
+- Verified: `npx tsc --noEmit` clean, `npm run build` clean, and the changed
+  server modules executed (not just `node --check`) to confirm the new import
+  resolves and the reminder string renders.
 
 **Boot splash no longer fetches its logo (2026-07-30):**
 - Bug Aidan hit repeatedly: a **broken-image icon** where the bouncing ball
