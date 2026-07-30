@@ -344,39 +344,63 @@ function trim(img, threshold = 8) {
 }
 
 /**
- * Close any interior letter gap wider than `target` columns down to `target`, by
- * dropping surplus empty columns. Used only for the reversed (white-on-colour)
- * lockup: the wordmark was kerned around a solid red disc, but knocking it out
- * breaks the disc's silhouette where the seams reach its edge, so the ball reads
- * narrower than it was spaced for and the two gaps flanking it open up.
+ * Even out the wordmark's letter clearances for the reversed (white-on-colour)
+ * lockup, by dropping or inserting empty columns so every interior gap lands in
+ * [min, max]. A run of fully empty columns is exactly the *closest* the two
+ * neighbouring letters come anywhere, which is what the eye picks up on.
+ *
+ * Measured on the source artwork at 1056px wide, those clearances are:
+ *
+ *   c→ball 27 · ball→t 28 · t→e 10 · e→r 19 · r→i 1 · i→e 20
+ *
+ * Two problems, opposite directions. The ball was kerned as a solid red disc, so
+ * knocking it out (the seams break its silhouette) leaves it reading narrower
+ * than the 27/28 it was given, and the word splits into three pieces. And the
+ * r's arm passes within 1px of the i's dot — everywhere else those two letters
+ * are far apart, which is why only the top of the pair looks wrong.
  */
-function tightenGaps(img, target) {
+function normalizeGaps(img, { min, max }) {
   const { w: iw, h: ih, data } = img;
+  // Segment on solid ink (alpha > 128), not on any ink at all: at the r/i pair
+  // the arm's anti-aliased edge reaches the dot's, so a permissive threshold
+  // reads them as one glyph and the gap that needs opening disappears.
   const inked = new Array(iw).fill(false);
   for (let x = 0; x < iw; x++)
     for (let y = 0; y < ih; y++)
-      if (data[(y * iw + x) * 4 + 3] > 8) { inked[x] = true; break; }
-  const keep = new Array(iw).fill(true);
+      if (data[(y * iw + x) * 4 + 3] > 128) { inked[x] = true; break; }
+  // Plan per column: keep it, drop it, or keep it and pad after it.
+  const drop = new Array(iw).fill(false);
+  const pad = new Array(iw).fill(0);
   let run = 0;
   for (let x = 0; x <= iw; x++) {
     if (x < iw && !inked[x]) { run++; continue; }
-    if (run > target) {
-      // Drop the surplus from the middle of the gap so both glyph edges keep
-      // the same amount of air.
-      const surplus = run - target;
-      const from = x - run + Math.floor((run - surplus) / 2);
-      for (let k = 0; k < surplus; k++) keep[from + k] = false;
+    const start = x - run;
+    // Interior gaps only: a run touching either edge is the artwork's own margin,
+    // which trim() removes anyway. Adjusting it would let the drop range below
+    // walk past the end of the run and eat into the next glyph.
+    if (run && start > 0 && x < iw) {
+      if (run > max) {
+        // Remove the middle `surplus` columns, so both glyph edges keep equal air
+        // and the range provably stays inside the run.
+        const surplus = run - max;
+        const from = start + Math.floor((run - surplus) / 2);
+        for (let k = 0; k < surplus; k++) drop[from + k] = true;
+      } else if (run < min) {
+        pad[start + Math.floor(run / 2)] = min - run;
+      }
     }
     run = 0;
   }
-  const cols = keep.reduce((n, k) => n + (k ? 1 : 0), 0);
+  const cols =
+    inked.length - drop.filter(Boolean).length + pad.reduce((a, b) => a + b, 0);
   const out = Buffer.alloc(cols * ih * 4);
   let ox = 0;
   for (let x = 0; x < iw; x++) {
-    if (!keep[x]) continue;
+    if (drop[x]) continue;
     for (let y = 0; y < ih; y++)
       data.copy(out, (y * cols + ox) * 4, (y * iw + x) * 4, (y * iw + x) * 4 + 4);
     ox++;
+    ox += pad[x]; // inserted columns stay transparent
   }
   return { w: cols, h: ih, data: out };
 }
@@ -423,11 +447,34 @@ function tightenGaps(img, target) {
     );
   };
 
-  const reversed = trim(knockout(clipProtrusions(wordmark)));
-  cover(reversed, "coterie-cover-red-2400x400.png");
-  // 20px is the widest gap the wordmark uses between two ordinary letters, so
-  // matching it makes the ball sit in the word rather than beside it.
-  cover(tightenGaps(reversed, 20), "coterie-cover-red-2400x400-kerned.png");
+  /** Widths of the fully empty column runs between glyphs — the clearances. */
+  const clearances = (img) => {
+    const gaps = [];
+    let run = 0;
+    for (let x = 0; x < img.w; x++) {
+      let any = false;
+      for (let y = 0; y < img.h; y++)
+        if (img.data[(y * img.w + x) * 4 + 3] > 128) { any = true; break; }
+      if (!any) run++;
+      else if (run) { gaps.push(run); run = 0; }
+    }
+    return gaps;
+  };
+
+  // Kern BEFORE knocking out. Once the seams are transparent the ball is three
+  // separate shapes, and a gap-finder would treat a seam as a letter gap and
+  // prise the ball apart. On the red artwork it is one solid disc.
+  const clipped = clipProtrusions(wordmark);
+  cover(trim(knockout(clipped)), "coterie-cover-red-2400x400.png");
+  // 20 is the clearance the wordmark already uses between two ordinary letters,
+  // so it's the ceiling; 12 is the floor, enough to part the r's arm from the i's
+  // dot without pushing the i off its own spacing.
+  const kernedSrc = normalizeGaps(clipped, { min: 12, max: 20 });
+  cover(trim(knockout(kernedSrc)), "coterie-cover-red-2400x400-kerned.png");
+  console.log(
+    `   clearances (artwork px): as drawn ${clearances(clipped).join("·")} ` +
+      `→ kerned ${clearances(kernedSrc).join("·")}`
+  );
 
   // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
   // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.

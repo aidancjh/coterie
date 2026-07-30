@@ -217,15 +217,25 @@ Ordered by priority. Update status inline as these move.
      banner now centres on the ink **mass centroid** vertically (a 17px lift at
      200px tall) and on the bounding box horizontally. Wordmark also grew from
      44% → 50% of the banner height.
-  2. *Kerning around the ball.* The source artwork spaces the ball-as-o at 27–28px
-     (at 1056px wide) where ordinary letter gaps are 10–20px. It was kerned for a
-     solid red disc; knocking it out breaks the silhouette where the seams reach
-     the edge, so the ball reads narrower than it was spaced for and the word
-     splits into "c ● terie". New `tightenGaps()` closes any interior gap wider
-     than 20px, dropping the surplus from the middle so both glyph edges keep
-     equal air. Shipped as a **separate `-kerned` file** rather than applied to
-     the only copy: re-kerning the wordmark is a brand decision, and Jabez is
-     redrawing the logo anyway.
+  2. *Uneven letter clearances.* Measured on the artwork at 1056px wide, the
+     clearances are `c→ball 27 · ball→t 28 · t→e 10 · e→r 19 · r→i 1 · i→e 20`.
+     Two faults in opposite directions: the ball was kerned as a solid red disc,
+     so knocking it out (seams break the silhouette) leaves it reading narrower
+     than the 27–28px it was given and the word splits into three pieces; and
+     **the r's arm passes within 1px of the i's dot** — everywhere else those two
+     letters are 62px apart, which is why only the top of the pair looked wrong.
+     `normalizeGaps()` drops or inserts empty columns so every interior clearance
+     lands in [12, 20]: `20·20·12·19·12·20`. Shipped as a **separate `-kerned`
+     file** rather than applied to the only copy: re-kerning the wordmark is a
+     brand decision, and Jabez is redrawing the logo anyway.
+- Two traps worth remembering if this is touched again. **Kern before knocking
+  out**: once the seams are transparent the ball is three separate shapes, and a
+  gap-finder prises it apart at the seams. And **segment on solid ink**
+  (alpha > 128, not > 8): at the r/i pair the anti-aliased edges touch, so a
+  permissive threshold reads them as one glyph and the gap that needs opening
+  isn't there to find. A first cut of the column-dropping range could also walk
+  past the end of a wide run and eat into the next glyph — it now takes the middle
+  `surplus` columns, and skips the runs at the image edges entirely.
 
 **Tone-of-voice pass across the app + brand record (2026-07-30):**
 - Trigger: Aidan updated the designer brief (`Jabez (App design) (1).docx`, in
