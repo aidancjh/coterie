@@ -17,7 +17,7 @@ import {
 } from "../services/gamesService";
 import { useProfile } from "../hooks/useProfile";
 import { useAuth } from "../auth/AuthContext";
-import { formatDate, formatTime, formatTimeRange, isPast, relativeDay } from "../lib/format";
+import { formatCost, formatDate, formatMoney, formatTime, formatTimeRange, isPast, relativeDay } from "../lib/format";
 import { SkillBadge, SpotsBadge, TypeBadge } from "../components/Badges";
 import GameComments from "../components/GameComments";
 import Modal from "../components/Modal";
@@ -251,12 +251,14 @@ export default function GameDetail() {
                     <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Location</span>
                     <span className="max-w-[60%] text-right text-sm font-semibold leading-snug text-slate-100">{game.location}</span>
                   </div>
-                  {game.costPerPerson > 0 && (
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Cost</span>
-                      <span className="text-sm font-semibold text-slate-100">{formatMoney(game.costPerPerson)} per person</span>
-                    </div>
-                  )}
+                  {/* Always shown, never just omitted for a free game — a
+                      missing row reads as unknown, not as "free". */}
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Cost</span>
+                    <span className="text-sm font-semibold text-slate-100">
+                      {game.costPerPerson > 0 ? `${formatMoney(game.costPerPerson)} per person` : "Free"}
+                    </span>
+                  </div>
                 </div>
                 {game.notes && (
                   <div className="mx-8 mt-4 rounded-xl bg-slate-800 px-4 py-3 text-sm leading-relaxed text-slate-300">
@@ -324,12 +326,14 @@ export default function GameDetail() {
                     <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Location</span>
                     <span className="max-w-[60%] text-right text-sm font-semibold leading-snug text-slate-100">{game.location}</span>
                   </div>
-                  {game.costPerPerson > 0 && (
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Cost</span>
-                      <span className="text-sm font-semibold text-slate-100">{formatMoney(game.costPerPerson)} per person</span>
-                    </div>
-                  )}
+                  {/* Always shown, never just omitted for a free game — a
+                      missing row reads as unknown, not as "free". */}
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Cost</span>
+                    <span className="text-sm font-semibold text-slate-100">
+                      {game.costPerPerson > 0 ? `${formatMoney(game.costPerPerson)} per person` : "Free"}
+                    </span>
+                  </div>
                 </div>
                 {game.notes && (
                   <div className="mx-8 mt-4 rounded-xl bg-slate-800 px-4 py-3 text-sm leading-relaxed text-slate-300">
@@ -594,11 +598,11 @@ export default function GameDetail() {
             {game.positionsNeeded.map((p) => (p === "Any" ? "Any position" : p)).join(", ")}
           </InfoRow>
         )}
-        {game.costPerPerson > 0 && (
-          <InfoRow icon={<CoinsIcon className="h-4 w-4" />} label="Cost per person">
-            {formatMoney(game.costPerPerson)}
-          </InfoRow>
-        )}
+        {/* Always shown — a free game reads "Free", never an absent row that
+            could be mistaken for a missing price rather than no cost. */}
+        <InfoRow icon={<CoinsIcon className="h-4 w-4" />} label="Cost per person">
+          {formatCost(game.costPerPerson)}
+        </InfoRow>
         {game.notes && (
           <InfoRow icon={<NoteIcon className="h-4 w-4" />} label="Notes">
             {game.notes}
@@ -837,15 +841,6 @@ export default function GameDetail() {
       <GameComments gameId={game.id} hostId={game.hostId} />
     </div>
   );
-}
-
-/** "$10" for whole dollars, "$10.50" when there are cents. */
-function formatMoney(n: number): string {
-  const hasCents = Math.round(n * 100) % 100 !== 0;
-  return `$${n.toLocaleString(undefined, {
-    minimumFractionDigits: hasCents ? 2 : 0,
-    maximumFractionDigits: 2,
-  })}`;
 }
 
 function InfoRow({

@@ -1,4 +1,5 @@
 import type { GameType, SkillLevel } from "../types";
+import { formatCost } from "../lib/format";
 
 // Preview: badges are informational, not status — keep them neutral so the
 // only colors on a card are the brand red and the green/amber/rose spots signal.
@@ -13,6 +14,19 @@ const skillStyles: Record<SkillLevel, string> = {
   Intermediate: NEUTRAL_BADGE,
   Advanced: NEUTRAL_BADGE,
 };
+
+/** Per-person cost pill for a game card — "$10" or "Free", never absent. Same
+ *  neutral styling as the type/skill badges so it reads as one badge language
+ *  rather than a new accent colour competing for attention. */
+export function CostBadge({ costPerPerson }: { costPerPerson: number }) {
+  return (
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${NEUTRAL_BADGE}`}
+    >
+      {formatCost(costPerPerson)}
+    </span>
+  );
+}
 
 export function SkillBadge({
   skill,

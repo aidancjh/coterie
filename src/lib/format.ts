@@ -73,3 +73,19 @@ export function isPast(iso: string): boolean {
   target.setHours(23, 59, 59, 0);
   return target.getTime() < Date.now();
 }
+
+/** "$10" for whole dollars, "$10.50" when there are cents. */
+export function formatMoney(n: number): string {
+  const hasCents = Math.round(n * 100) % 100 !== 0;
+  return `$${n.toLocaleString(undefined, {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/** "$10" or "Free" — the per-person cost as shown anywhere a player decides
+ *  whether to join. Reliable means the price is never just missing: a 0
+ *  reads as "Free", not as an absent field. */
+export function formatCost(costPerPerson: number): string {
+  return costPerPerson > 0 ? formatMoney(costPerPerson) : "Free";
+}

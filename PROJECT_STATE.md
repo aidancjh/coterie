@@ -114,6 +114,7 @@ Ordered by priority. Update status inline as these move.
 | 19 | Stale remote branches on origin: `main-aidan`, `cleanup/phases-0-2-hygiene-reliability-a11y`, `worktree-admin-split-analytics`. Deleting remote branches needs Aidan's OK. | ⬜ Awaiting Aidan |
 | 21 | **The consumer feedback / bug form is unreachable.** `submitFeedback()` in `src/services/gamesService.ts`, `POST /api/feedback`, the `feedback` table and the admin Feedback inbox all still work, but `Settings.tsx` lost the rows that opened the form in the July 2026 frontend change (its `panel` state still has `"feedback" \| "bug"` cases with nothing to trigger them). Testers currently have no in-app way to report anything. | ⬜ Not started |
 | 22 | **Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype`** — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy. | ⬜ Not started |
+| 23 | **Mirror the 2026-07-30 price-display fix to `coterie-prototype`** — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 
 ---
@@ -191,6 +192,37 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Price always shown; audited against every host-entered field (2026-07-30):**
+- Aidan: ensure price shows on the browse page and on the game detail page, and
+  that every other host-entered detail is shown when a game is opened.
+- Audit method: enumerated every field in `NewGameInput`/`GameForm.tsx` (the
+  form the host actually fills in) and checked each against what
+  `GameDetail.tsx` and `GameCard.tsx` render. Two real gaps found, both about
+  price specifically — everything else the host enters was already displayed
+  (gender/net height/positions are conditionally hidden, but only when they're
+  the unremarkable default, e.g. "Open" or "Any position", which is correct,
+  not a gap). `region` and `rotationType` are dead fields no longer exposed by
+  the form (removed per an earlier decision, still allowlisted server-side for
+  old rows) — not host-entered today, nothing to surface.
+- ✅ Gap 1: **the browse card never showed price at all.** New `CostBadge` in
+  `Badges.tsx` (same neutral styling as the type/skill pills, so it reads as
+  one badge language rather than a new accent colour) added to `GameCard.tsx`,
+  in the host/skill row — the one row measured to have genuine spare width
+  (~60–90px across real cards) on both the title row and the fill-bar row,
+  which are already near capacity with long titles or a full "Full · join
+  waitlist (14/14)" spots label. `GameCard` is shared by Browse, Interested and
+  hosted-games lists, so all three got it from one change.
+- ✅ Gap 2: **on the detail page and both join-confirmation modals, the cost row
+  only rendered when `costPerPerson > 0`** — a free game showed no price row at
+  all, which reads as "unknown," not "free." Now unconditional everywhere,
+  showing "Free" when the host left it blank.
+- ✅ `formatMoney` moved from a private function in `GameDetail.tsx` to
+  `src/lib/format.ts` (now shared by `GameCard`, `GameDetail`, `Badges`); new
+  `formatCost()` alongside it returns `"Free"` for 0 rather than `"$0"`.
+- Not mirrored to `coterie-prototype` yet — that fork shares this frontend and
+  needs the same fix, but mirroring means its own `railway up`, which wasn't
+  part of this ask.
 
 **Game card seam fixed + whole-site layout audit (2026-07-30):**
 - Aidan spotted that a card's red date rail didn't run the full height of the
