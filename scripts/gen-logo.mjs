@@ -13,7 +13,8 @@
 //   public/og-image.png                                 (mark on dark canvas)
 //   public/favicon.svg                                  (mark wrapped as SVG)
 //   index.html                                          (splash mark, inlined)
-import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
+//   brand-exports/*.png                                 (cover banner + logo tiles)
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inflateSync, deflateSync } from "node:zlib";
@@ -296,6 +297,84 @@ w(P("maskable-512x512.png"), iconTile(512, 0.13));
     html.replace(re, `$1\n            <img src="data:image/png;base64,${b64}" alt="Coterie" />\n            $2`)
   );
   console.log(`wrote ./index.html splash mark (${Math.round(b64.length / 1024)} KB base64)`);
+}
+
+// 8. Brand exports — standalone files for things outside the app (survey covers,
+// slide decks, social profiles). Not used by the app itself; regenerated here so
+// they can never drift from the artwork.
+//
+// Knockout: turn the artwork into pure white with the seams punched out, so it
+// can sit on any colour. The white seams inside the red ball become transparent
+// (the background shows through them, which is how a reversed logo is meant to
+// work), while letters and the ball body become solid white. Alpha is derived
+// from how white a pixel is, so the artwork's anti-aliasing survives.
+function knockout(img) {
+  const { w, h, data } = img;
+  const d = Buffer.alloc(w * h * 4);
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (!a) continue;
+    const min = Math.min(data[i], data[i + 1], data[i + 2]);
+    const whiteness = Math.min(1, Math.max(0, (min - 128) / 127));
+    d[i] = d[i + 1] = d[i + 2] = 255;
+    d[i + 3] = Math.round(a * (1 - whiteness));
+  }
+  return { w, h, data: d };
+}
+
+/** Crop to the visible ink, so scaling and centring aren't thrown off by the
+ *  artwork's own transparent margins. */
+function trim(img, threshold = 8) {
+  const { w, h, data } = img;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (data[(y * w + x) * 4 + 3] > threshold) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+  if (x1 < 0) return img;
+  const tw = x1 - x0 + 1, th = y1 - y0 + 1;
+  const out = Buffer.alloc(tw * th * 4);
+  for (let y = 0; y < th; y++)
+    data.copy(out, y * tw * 4, ((y + y0) * w + x0) * 4, ((y + y0) * w + x0 + tw) * 4);
+  return { w: tw, h: th, data: out };
+}
+
+{
+  const exports_ = join(root, "brand-exports");
+  mkdirSync(exports_, { recursive: true });
+  const E = (p) => join(exports_, p);
+  const RED = [217, 38, 50]; // #d92632
+
+  // 8a. Wide cover banner: white wordmark centred on brand red. 2400×400 (6:1)
+  // is close to the strip a form/site cover actually renders, and because
+  // covers are centre-cropped to fit, the wordmark is kept to ~40% of the width
+  // so it survives even a hard crop to mobile proportions.
+  {
+    const CW = 2400, CH = 400;
+    const mark = trim(knockout(clipProtrusions(wordmark)));
+    let mh = Math.round(CH * 0.44);
+    let mw = Math.round((mark.w / mark.h) * mh);
+    const maxW = Math.round(CW * 0.4);
+    if (mw > maxW) { mw = maxW; mh = Math.round((mark.h / mark.w) * mw); }
+    const bg = canvas(CW, CH, RED);
+    over(bg, downscale(mark, mw, mh), Math.round((CW - mw) / 2), Math.round((CH - mh) / 2));
+    w(E("coterie-cover-red-2400x400.png"), bg);
+    console.log(`   wordmark placed at ${mw}×${mh} (${Math.round((mw / CW) * 100)}% of width)`);
+  }
+
+  // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
+  // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.
+  w(E("coterie-logo-tile-white-512.png"), iconTile(512, 0.18));
+  {
+    const tile = canvas(512, 512, RED);
+    const inner = Math.round(512 * (1 - 2 * 0.18));
+    over(tile, downscale(knockout(mark), inner, inner), Math.round((512 - inner) / 2), Math.round((512 - inner) / 2));
+    w(E("coterie-logo-tile-red-512.png"), tile);
+  }
 }
 
 console.log("done");

@@ -192,6 +192,23 @@ Ordered by priority. Update status inline as these move.
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
 
+**Brand exports for outside-the-app use (2026-07-30):**
+- Aidan needed a cover image and a logo image for the Tally volleyball survey.
+  `scripts/gen-logo.mjs` step 8 now also writes **`brand-exports/`**, so these
+  can't drift from the artwork and exist on both machines:
+  - `coterie-cover-red-2400x400.png` — white wordmark centred on brand red.
+  - `coterie-logo-tile-white-512.png` / `coterie-logo-tile-red-512.png` — square
+    logo tiles, mark inset 18% (vs 13% for the app icons) so a **circular** crop
+    can't clip it.
+- New helpers in that script: `knockout()` turns the artwork pure white with the
+  ball's seams punched to transparent — the reversed-logo treatment, so the
+  background shows through the seams instead of the seams being white-on-red;
+  and `trim()` crops to the visible ink so centring isn't thrown off by the
+  artwork's own margins.
+- The cover is 6:1 with the wordmark held to ~34% of the width on purpose: form
+  covers are centre-cropped, and that keeps the wordmark whole even when the
+  strip crops to mobile proportions.
+
 **Tone-of-voice pass across the app + brand record (2026-07-30):**
 - Trigger: Aidan updated the designer brief (`Jabez (App design) (1).docx`, in
   Downloads) and fixed the tone of voice at **Convenient · Reliable ·
