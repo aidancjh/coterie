@@ -32,11 +32,16 @@ export default function GameCard({
   const showYouAreIn = youAreIn && !isPast(game.date);
 
   return (
+    // `flex` rather than `block`, and the row lives on the link itself: in the
+    // 2-column grid every card in a row is stretched to the tallest one, and a
+    // block-level link left its inner row at natural height — so on the shorter
+    // card the red date rail stopped ~20px above the bottom and left a white
+    // strip inside the card. Making the link the flex container means both
+    // columns stretch with it.
     <Link
       to={`/game/${game.id}`}
-      className="block overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm transition hover:border-slate-700 hover:shadow"
+      className="flex overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm transition hover:border-slate-700 hover:shadow"
     >
-      <div className="flex">
         {/* Date sidebar */}
         <div className="flex w-[60px] shrink-0 flex-col items-center justify-center gap-0.5 bg-brand py-5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70">
@@ -103,7 +108,6 @@ export default function GameCard({
             </span>
           </div>
         </div>
-      </div>
     </Link>
   );
 }

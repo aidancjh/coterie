@@ -192,6 +192,32 @@ Ordered by priority. Update status inline as these move.
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
 
+**Game card seam fixed + whole-site layout audit (2026-07-30):**
+- Aidan spotted that a card's red date rail didn't run the full height of the
+  card. Measured on production: the card was 169.5px tall while its inner row was
+  146px — **23px of white showing below the rail**, inside the card's rounded
+  corner.
+- Cause: `GameCard`'s link was `display: block` wrapping a `flex` row. In the
+  2-column desktop grid every card in a row is stretched to the tallest one, but a
+  block-level link leaves its inner row at natural height, so the shorter card's
+  rail stopped early. Invisible on mobile, where the list is `space-y-3` and every
+  card is its natural height — which is why it survived this long.
+- ✅ Fix: the link *is* the flex row now (`flex` on the `<Link>`, wrapper div
+  removed), so both columns stretch with the card.
+- ✅ New `scripts/layout-audit.js` — a zero-dependency console snippet that
+  measures a page for this class of fault (`stretched-not-filled`), plus clipped
+  text with no ellipsis, elements outside the viewport, sideways page scroll and
+  ink matching its background. Documented in `CLAUDE.md`. Two things it gets right
+  that a naive version doesn't: colours are resolved by painting to a canvas
+  (Tailwind 4 emits `oklch()`, which can't be diffed component-wise against
+  `rgb()` — doing so produced false "invisible text" hits), and deliberately
+  clipped things are excluded (`aria-hidden` subtrees such as the partial-fill
+  star overlay, and `.sr-only` text).
+- Audited **/, /interested, /chats, /notifications, /profile, /settings, /create,
+  /privacy, /game/:id, /user/:id and the Upcoming/Hosting/Past tabs at 375, 768
+  and 1440 wide**. The card was the only real fault anywhere; everything else came
+  back clean.
+
 **Image resampling rewritten — every generated logo asset (2026-07-30):**
 - Aidan: zoomed in, the logo "looks slightly pixelated, doesn't look as rounded".
   He was right, and the cause was in `gen-logo.mjs`'s resizer, so it affected

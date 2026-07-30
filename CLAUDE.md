@@ -132,6 +132,27 @@ On startup the server calls, in order: `initSchema()` → `seedIfEmpty()` → `s
 - **Tailwind**: Using Tailwind CSS 4.0 (Vite plugin, not PostCSS). Brand color is `text-brand` / `bg-brand` — **red `#d92632`**, defined as CSS variable `--color-brand` in `src/index.css` (with `--color-brand-dark: #b31e29`). The app is **light-themed**: components still use dark-slate utility classes, but `src/index.css` inverts the slate scale via `@theme` and remaps `.text-white` to dark ink (white stays white on colored surfaces). The **admin app keeps the old dark/blue theme** via its own stylesheet `src/admin/admin.css` (imported by `src/admin-main.tsx`), so consumer theme changes don't touch admin.
 - **Branding**: the product is **Coterie** everywhere (UI, PWA manifest, emails, ICS, OG tags) as of 2026-07-23 — the Vybe name is retired. Logo is `BrandMark` in `src/components/icons.tsx` (red tile + white C); PNG icons regenerate via `node scripts/generate-icons.mjs`.
 
+## Checking layout after a UI change
+
+`scripts/layout-audit.js` is a console snippet (no dependencies) that measures a
+page for the faults that actually show up as visible defects: a panel showing a
+band of its own background because its contents didn't stretch with it, text
+clipped without an ellipsis, anything poking outside the viewport, sideways page
+scroll, ink the same colour as the surface behind it. Paste it into DevTools on
+any page, then:
+
+```js
+__audit()                        // this page
+await __go("/chats"); __audit()  // SPA-navigate, then re-check
+```
+
+Run it at ~375, 768 and 1440 wide after any layout change: the bug it was written
+for only appeared in the 2-column desktop grid and was invisible on mobile.
+Known-intentional clipping (the partial-fill star overlay, `.sr-only` text) is
+excluded, so a clean run means clean. Colours are resolved by painting them to a
+canvas — Tailwind 4 emits `oklch()`, which can't be compared component-wise
+against `rgb()`.
+
 ## Brand voice — Convenient · Reliable · Inclusive
 
 Aidan's tone of voice is **strictly these three adjectives** (set 2026-07-30, replacing
