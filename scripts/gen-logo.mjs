@@ -12,6 +12,7 @@
 //   public/maskable-512x512.png                         (mark on white tile)
 //   public/og-image.png                                 (mark on dark canvas)
 //   public/favicon.svg                                  (mark wrapped as SVG)
+//   index.html                                          (splash mark, inlined)
 import { readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -272,6 +273,29 @@ w(P("maskable-512x512.png"), iconTile(512, 0.13));
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><image href="data:image/png;base64,${b64}" width="1024" height="1024"/></svg>`;
   writeFileSync(P("favicon.svg"), svg);
   console.log("wrote ./public/favicon.svg");
+}
+
+// 7. Boot splash mark — inlined into index.html as a data URI.
+//
+// The splash is the very first thing painted, before any JS runs. When it
+// pointed at /logo-mark.png it depended on a network fetch that the service
+// worker never precached, so a reload on a flaky connection (or against a
+// sleeping Railway dyno) painted the browser's broken-image icon right in the
+// middle of the boot screen. A data URI can't fail: it ships inside the HTML
+// the browser already has. Downscaled to 128px because the splash paints it at
+// 64 CSS px — the full 1024px artwork would put ~99 KB of base64 in front of
+// first paint.
+{
+  const b64 = encodePNG(downscale(mark, 128, 128)).toString("base64");
+  const file = join(root, "index.html");
+  const html = readFileSync(file, "utf8");
+  const re = /(<!-- splash-mark:start -->)[\s\S]*?(<!-- splash-mark:end -->)/;
+  if (!re.test(html)) throw new Error("index.html is missing the splash-mark markers");
+  writeFileSync(
+    file,
+    html.replace(re, `$1\n            <img src="data:image/png;base64,${b64}" alt="Coterie" />\n            $2`)
+  );
+  console.log(`wrote ./index.html splash mark (${Math.round(b64.length / 1024)} KB base64)`);
 }
 
 console.log("done");

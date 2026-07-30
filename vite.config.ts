@@ -9,7 +9,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      // logo-mark.png is precached because the waitlist pages render it via
+      // <img src>: uncached, a reload on a bad connection paints a broken-image
+      // icon. (The boot splash no longer fetches it at all — it inlines the
+      // mark as a data URI, see index.html.)
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "logo-mark.png"],
       manifest: {
         name: "Coterie — Find your players",
         short_name: "Coterie",

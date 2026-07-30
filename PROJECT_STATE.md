@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-07-29 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-07-30 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -187,6 +187,31 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Boot splash no longer fetches its logo (2026-07-30):**
+- Bug Aidan hit repeatedly: a **broken-image icon** where the bouncing ball
+  should be, on load and again on reload.
+- Root cause: the splash in `index.html` is painted before any JS runs, and its
+  ball was `<img src="/logo-mark.png">` — a 74 KB network fetch. The service
+  worker never precached that file (`includeAssets` listed only `favicon.svg`
+  and `apple-touch-icon.png`, and there is no runtime rule for images), while
+  the HTML itself *is* served from cache. So whenever the request failed —
+  offline reload, flaky mobile, a cold Railway dyno — the page rendered fine and
+  the logo rendered as the browser's broken-image glyph.
+- ✅ Fix: the mark is now **inlined as a 128px base64 data URI** in
+  `index.html`, so the splash makes no requests at all and cannot fail. 128px
+  because it paints at 64 CSS px; the full 1024px artwork would put ~99 KB of
+  base64 in front of first paint (this is ~5 KB).
+- ✅ It is **generated, not hand-edited** — `scripts/gen-logo.mjs` step 7
+  rewrites the region between the `<!-- splash-mark:start/end -->` markers, so a
+  future logo change regenerates the splash too. The script throws if the
+  markers are missing rather than silently skipping.
+- ✅ `logo-mark.png` added to `includeAssets` so the SW precaches it for the two
+  waitlist pages, which still render it via `<img src>` after the bundle loads.
+- Verified from the built `dist/index.html` opened off the filesystem (zero
+  network): the splash img decodes, `naturalWidth` 128, `complete` true.
+- The preview fork's splash uses an inline SVG and it doesn't reference
+  `logo-mark.png` anywhere, so it never had this bug — nothing to mirror.
 
 **Participation restored to the rating block (2026-07-29):**
 - Bug: every profile's rating card showed a bare **"—  PARTICIPATION"**. Not
