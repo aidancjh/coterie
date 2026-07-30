@@ -343,6 +343,44 @@ function trim(img, threshold = 8) {
   return { w: tw, h: th, data: out };
 }
 
+/**
+ * Close any interior letter gap wider than `target` columns down to `target`, by
+ * dropping surplus empty columns. Used only for the reversed (white-on-colour)
+ * lockup: the wordmark was kerned around a solid red disc, but knocking it out
+ * breaks the disc's silhouette where the seams reach its edge, so the ball reads
+ * narrower than it was spaced for and the two gaps flanking it open up.
+ */
+function tightenGaps(img, target) {
+  const { w: iw, h: ih, data } = img;
+  const inked = new Array(iw).fill(false);
+  for (let x = 0; x < iw; x++)
+    for (let y = 0; y < ih; y++)
+      if (data[(y * iw + x) * 4 + 3] > 8) { inked[x] = true; break; }
+  const keep = new Array(iw).fill(true);
+  let run = 0;
+  for (let x = 0; x <= iw; x++) {
+    if (x < iw && !inked[x]) { run++; continue; }
+    if (run > target) {
+      // Drop the surplus from the middle of the gap so both glyph edges keep
+      // the same amount of air.
+      const surplus = run - target;
+      const from = x - run + Math.floor((run - surplus) / 2);
+      for (let k = 0; k < surplus; k++) keep[from + k] = false;
+    }
+    run = 0;
+  }
+  const cols = keep.reduce((n, k) => n + (k ? 1 : 0), 0);
+  const out = Buffer.alloc(cols * ih * 4);
+  let ox = 0;
+  for (let x = 0; x < iw; x++) {
+    if (!keep[x]) continue;
+    for (let y = 0; y < ih; y++)
+      data.copy(out, (y * cols + ox) * 4, (y * iw + x) * 4, (y * iw + x) * 4 + 4);
+    ox++;
+  }
+  return { w: cols, h: ih, data: out };
+}
+
 {
   const exports_ = join(root, "brand-exports");
   mkdirSync(exports_, { recursive: true });
@@ -351,20 +389,45 @@ function trim(img, threshold = 8) {
 
   // 8a. Wide cover banner: white wordmark centred on brand red. 2400×400 (6:1)
   // is close to the strip a form/site cover actually renders, and because
-  // covers are centre-cropped to fit, the wordmark is kept to ~40% of the width
-  // so it survives even a hard crop to mobile proportions.
-  {
+  // covers are centre-cropped to fit, the wordmark is kept under ~40% of the
+  // width so it survives even a hard crop to mobile proportions.
+  const cover = (mark, file) => {
     const CW = 2400, CH = 400;
-    const mark = trim(knockout(clipProtrusions(wordmark)));
-    let mh = Math.round(CH * 0.44);
+    let mh = Math.round(CH * 0.5);
     let mw = Math.round((mark.w / mark.h) * mh);
     const maxW = Math.round(CW * 0.4);
     if (mw > maxW) { mw = maxW; mh = Math.round((mark.h / mark.w) * mw); }
+    const scaled = downscale(mark, mw, mh);
     const bg = canvas(CW, CH, RED);
-    over(bg, downscale(mark, mw, mh), Math.round((CW - mw) / 2), Math.round((CH - mh) / 2));
-    w(E("coterie-cover-red-2400x400.png"), bg);
-    console.log(`   wordmark placed at ${mw}×${mh} (${Math.round((mw / CW) * 100)}% of width)`);
-  }
+    // Vertically the wordmark is centred on its ink MASS, not its bounding box.
+    // "coterie" is all lowercase with no descenders, so the top third of the box
+    // holds nothing but the t stem and the i dot — 10% of the ink in 30% of the
+    // height. Centring the box therefore drops the word about 9% of its own
+    // height below where the eye expects it, which is what made the spacing look
+    // wrong: too much air above, too little below. Horizontal stays on the box,
+    // which is what equal left/right margins mean for a single word.
+    let mass = 0, massY = 0;
+    for (let y = 0; y < mh; y++)
+      for (let x = 0; x < mw; x++) {
+        const a = scaled.data[(y * mw + x) * 4 + 3];
+        mass += a;
+        massY += a * y;
+      }
+    const centroidY = mass ? massY / mass : mh / 2;
+    const oy = Math.round(CH / 2 - centroidY);
+    over(bg, scaled, Math.round((CW - mw) / 2), oy);
+    w(E(file), bg);
+    console.log(
+      `   wordmark ${mw}×${mh} (${Math.round((mw / CW) * 100)}% of width), ` +
+        `optical lift ${Math.round(mh / 2 - centroidY)}px above box-centre`
+    );
+  };
+
+  const reversed = trim(knockout(clipProtrusions(wordmark)));
+  cover(reversed, "coterie-cover-red-2400x400.png");
+  // 20px is the widest gap the wordmark uses between two ordinary letters, so
+  // matching it makes the ball sit in the word rather than beside it.
+  cover(tightenGaps(reversed, 20), "coterie-cover-red-2400x400-kerned.png");
 
   // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
   // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.

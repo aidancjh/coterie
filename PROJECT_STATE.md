@@ -196,7 +196,8 @@ Ordered by priority. Update status inline as these move.
 - Aidan needed a cover image and a logo image for the Tally volleyball survey.
   `scripts/gen-logo.mjs` step 8 now also writes **`brand-exports/`**, so these
   can't drift from the artwork and exist on both machines:
-  - `coterie-cover-red-2400x400.png` — white wordmark centred on brand red.
+  - `coterie-cover-red-2400x400.png` — white wordmark centred on brand red, plus
+    a `-kerned` variant (see below).
   - `coterie-logo-tile-white-512.png` / `coterie-logo-tile-red-512.png` — square
     logo tiles, mark inset 18% (vs 13% for the app icons) so a **circular** crop
     can't clip it.
@@ -205,9 +206,26 @@ Ordered by priority. Update status inline as these move.
   background shows through the seams instead of the seams being white-on-red;
   and `trim()` crops to the visible ink so centring isn't thrown off by the
   artwork's own margins.
-- The cover is 6:1 with the wordmark held to ~34% of the width on purpose: form
+- The cover is 6:1 with the wordmark held under 40% of the width on purpose: form
   covers are centre-cropped, and that keeps the wordmark whole even when the
   strip crops to mobile proportions.
+- **Spacing fix, same day** (Aidan: "the spacing for coterie doesn't look that
+  good"). Two measured causes, both addressed:
+  1. *Optical centring.* "coterie" is all lowercase with no descenders, so the
+     top 30% of its bounding box holds 10% of the ink (the t stem and the i dot).
+     Centring the box therefore sat the word ~9% of its own height low. The
+     banner now centres on the ink **mass centroid** vertically (a 17px lift at
+     200px tall) and on the bounding box horizontally. Wordmark also grew from
+     44% → 50% of the banner height.
+  2. *Kerning around the ball.* The source artwork spaces the ball-as-o at 27–28px
+     (at 1056px wide) where ordinary letter gaps are 10–20px. It was kerned for a
+     solid red disc; knocking it out breaks the silhouette where the seams reach
+     the edge, so the ball reads narrower than it was spaced for and the word
+     splits into "c ● terie". New `tightenGaps()` closes any interior gap wider
+     than 20px, dropping the surplus from the middle so both glyph edges keep
+     equal air. Shipped as a **separate `-kerned` file** rather than applied to
+     the only copy: re-kerning the wordmark is a brand decision, and Jabez is
+     redrawing the logo anyway.
 
 **Tone-of-voice pass across the app + brand record (2026-07-30):**
 - Trigger: Aidan updated the designer brief (`Jabez (App design) (1).docx`, in
