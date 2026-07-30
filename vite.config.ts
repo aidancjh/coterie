@@ -15,7 +15,7 @@ export default defineConfig({
       // mark as a data URI, see index.html.)
       includeAssets: ["favicon.svg", "apple-touch-icon.png", "logo-mark.png"],
       manifest: {
-        name: "Coterie — Find your players",
+        name: "Coterie — Volleyball for all",
         short_name: "Coterie",
         description:
           "Find a volleyball game near you and claim a spot in seconds. Every game shows its skill level, its cost and who's already playing — and every level is welcome.",

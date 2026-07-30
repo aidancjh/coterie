@@ -269,7 +269,12 @@ export default function Auth() {
       <div className="mb-8 flex flex-col items-center text-center">
         <Logo className="h-12 w-12" />
         <span className="mt-3 text-2xl font-extrabold tracking-tight text-white">Coterie</span>
-        <span className="mt-1 text-sm text-slate-400">Find your players. Fill your games.</span>
+        {/* Slogan, decided 2026-07-30. Same red-uppercase treatment as the
+            waitlist pages' header kicker, so the brand introduces itself the
+            same way everywhere. */}
+        <span className="mt-1 text-xs font-bold uppercase tracking-widest text-brand">
+          Volleyball for all
+        </span>
       </div>
 
       <h1 className="mb-1 text-xl font-bold text-white">

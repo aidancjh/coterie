@@ -291,8 +291,11 @@ export default function WaitlistMobile() {
                 Coterie
               </span>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", color: "#7A8899" }}>
-              Volleyball · Singapore
+            {/* Slogan, decided 2026-07-30 — replaces the "Volleyball · Singapore"
+                location kicker that lived here. Same slot on the desktop
+                waitlist header and the Auth.tsx sign-in screen. */}
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", color: "#E4535D" }}>
+              VOLLEYBALL FOR ALL
             </span>
           </header>
 

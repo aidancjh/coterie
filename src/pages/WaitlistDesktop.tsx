@@ -400,8 +400,12 @@ export default function WaitlistDesktop() {
             Coterie
           </span>
         </div>
-        <span style={{ fontSize: "clamp(12.5px,1.1vw,18px)", fontWeight: 600, letterSpacing: "0.04em", color: "#8795A6" }}>
-          Volleyball · Singapore
+        {/* Slogan, decided 2026-07-30 — replaces the "Volleyball · Singapore"
+            location kicker that lived here. Same slot in WaitlistMobile.tsx
+            and the Auth.tsx sign-in screen, so it reads consistently across
+            every place the brand introduces itself. */}
+        <span style={{ fontSize: "clamp(12.5px,1.1vw,18px)", fontWeight: 700, letterSpacing: "0.08em", color: "#9E333B" }}>
+          VOLLEYBALL FOR ALL
         </span>
       </header>
 

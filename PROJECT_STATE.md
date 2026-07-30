@@ -56,6 +56,8 @@ Full detail lives in `CLAUDE.md`. Ops/env vars in `OPERATIONS.md`. Deploy in `DE
 
 | Decision | Rationale | Date |
 |---|---|---|
+| **Slogan decided: "VOLLEYBALL FOR ALL"** — replaces "Find your players. Fill your games." everywhere it appeared as a slogan (waitlist header, Auth sign-in screen, browser tab title, PWA install name). Verified against Rec:lub's own site/listings same day: it is itself pickup-style (discover → request to join → auto-promoted waitlist, round robins/leagues/drop-ins), just spread across five sports rather than built for one — doc updated to say so rather than only "multi-sport." | Aidan's direct call, from the original design-brief tagline list. Shorter and more of a rallying cry than the 4 shortlisted candidates from 2026-07-29, which were chosen for cold-read clarity — a deliberate trade, made explicitly, not picked from that shortlist. | 2026-07-30 |
+| **Category is "pickup volleyball," stated plainly** — the business overview's At a Glance table read "Social sports / community" without literally saying pickup volleyball, even though the rest of the doc already did throughout. Now "Pickup volleyball (social sports / community)." | Aidan asked directly whether "pickup" is the right word; it was already the doc's substantive framing, just not in that one summary field. | 2026-07-30 |
 | **Tone of voice is strictly three adjectives: Convenient · Reliable · Inclusive** — replaces the earlier Open / Reassuring / Plain. Every user-facing string (UI, emails, notifications, store listings, marketing) must do at least one and contradict none; rules + do/don't table now live in `CLAUDE.md` under "Brand voice". | Aidan's own words, from the updated designer brief ("Jabez (App design)"). The three are also his answer to what people should think of the app, so voice and product attributes deliberately share two words. | 2026-07-30 |
 | **Both sides of the marketplace are primary** — the player who can't find a game *and* the host who can't fill one. Beginners move from tertiary to secondary. | Aidan: "both seem important & primary to me" — neither side survives without the other. | 2026-07-30 |
 | **Main app IS Coterie now** — red/light preview frontend adopted wholesale; Vybe name retired everywhere (UI, PWA, emails, OG). Marketplace + highlight posting removed to match the preview exactly. Resolves the Vybe/Coterie naming split. | Aidan prefers the preview's UI; one look across both apps. | 2026-07-23 |
@@ -115,6 +117,7 @@ Ordered by priority. Update status inline as these move.
 | 21 | **The consumer feedback / bug form is unreachable.** `submitFeedback()` in `src/services/gamesService.ts`, `POST /api/feedback`, the `feedback` table and the admin Feedback inbox all still work, but `Settings.tsx` lost the rows that opened the form in the July 2026 frontend change (its `panel` state still has `"feedback" \| "bug"` cases with nothing to trigger them). Testers currently have no in-app way to report anything. | ⬜ Not started |
 | 22 | **Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype`** — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy. | ⬜ Not started |
 | 23 | **Mirror the 2026-07-30 price-display fix to `coterie-prototype`** — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`. | ⬜ Not started |
+| 24 | **Mirror the 2026-07-30 slogan change to `coterie-prototype`** — "VOLLEYBALL FOR ALL" replacing "Find your players. Fill your games." in both waitlist layouts' header kicker, `Auth.tsx`, `index.html` `<title>`, and the PWA manifest name. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 
 ---
@@ -192,6 +195,45 @@ Ordered by priority. Update status inline as these move.
 - ✅ **"Any" now reads "Any position"** in GameForm chips + helper text and on
   GameDetail; the open-spots filter reads "Any number". The stored value stays
   `"Any"` — changing it would orphan every game already saved with it.
+
+**Slogan shipped: "VOLLEYBALL FOR ALL" (2026-07-30):**
+- Aidan asked to confirm the app's category (pickup volleyball, not really
+  "networking") and to ship the decided slogan to the waitlist page and the main
+  app.
+- ✅ Verified live via WebSearch before writing anything down: Rec:lub's own
+  site + app-store listings show a genuinely pickup-style loop (discover →
+  request to join → auto-promoted waitlist, plus round robins/leagues/drop-ins)
+  — it *is* a pickup comp, just spread across five sports. Business overview's
+  competitor section updated from "multi-sport app" to say this explicitly, with
+  a new source citation.
+- ✅ Replaced the old slogan (**"Find your players. Fill your games."**)
+  everywhere it appeared as a brand slogan:
+  - `WaitlistDesktop.tsx` + `WaitlistMobile.tsx` — the header kicker next to the
+    logo, which read "Volleyball · Singapore," now reads "VOLLEYBALL FOR ALL"
+    (brand red, uppercase). Chose this spot deliberately over the hero
+    headline/value-prop copy: both waitlist layouts' hero text is explicitly
+    documented as pixel-tuned against the silhouette art and conversion-tested,
+    so it stays untouched. Verified no overflow/overlap at 1440, 375, and the
+    file's own called-out worst case of 320px wide.
+  - `Auth.tsx` — the "Find your players. Fill your games." subtitle under the
+    logo on the sign-in screen, same red-uppercase treatment (source text stays
+    sentence-case, `uppercase` class does the rendering — matches the
+    convention already used for "out of 5" etc. in `Badges.tsx`).
+  - `index.html` `<title>` and the PWA manifest `name` in `vite.config.ts` —
+    plain-text contexts (browser tab, OS app-switcher/install prompt), so kept
+    in normal case rather than shouting caps there.
+  - Left untouched: the meta `description` (rewritten in the tone-of-voice pass
+    two days ago; a description and a slogan are different content types,
+    conflating them would hurt the search snippet) and the older "Vybe"-era
+    docs (`README.md`, `STORE_LISTING.md`, `scripts/generate-icons.mjs`) —
+    pre-existing debt, out of scope for this ask.
+- ✅ `Coterie-Business-Overview.docx` updated in place (Word-validated, 25 pp.):
+  cover tagline, the At-a-Glance Category field, the tone-of-voice section's
+  tagline paragraph (now states the decision instead of "not chosen yet," with
+  the winning candidate marked in the original 8-line list), and the
+  Rec:lub-is-pickup-too note above.
+- Not mirrored to `coterie-prototype` — same situation as the tone-of-voice and
+  price-display passes: shares this frontend, needs its own `railway up`.
 
 **Price always shown; audited against every host-entered field (2026-07-30):**
 - Aidan: ensure price shows on the browse page and on the game detail page, and
