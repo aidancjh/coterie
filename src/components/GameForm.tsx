@@ -24,7 +24,20 @@ const FIELD_LABEL: Record<string, string> = {
   date: "date",
   location: "location",
   players: "player counts",
+  costPerPerson: "cost per person",
+  endTime: "end time",
 };
+
+// Keeps only digits and a single decimal point, so a $ field can't hold
+// letters or the "e"/"+"/"-" characters a native number input still allows.
+function filterCostInput(raw: string): string {
+  let cleaned = raw.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot !== -1) {
+    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
+  }
+  return cleaned;
+}
 
 function missingFieldsMessage(fields: string[]): string {
   const labels = fields.map((f) => FIELD_LABEL[f] ?? f);
@@ -89,6 +102,14 @@ export default function GameForm({
     Math.max(0, (initial.totalSlots ?? 2) - initialHave)
   );
   const totalPlayers = playersHave + playersNeed;
+  // Cost is compulsory, so the box must start genuinely empty for a brand-new
+  // game — showing a default "0" would let a host submit without ever having
+  // decided the price. `blankGame` is only ever passed in unedited for a new
+  // game, so reference equality tells new from "editing a free game" (whose
+  // real, already-decided cost is 0 and should display as "0").
+  const [costText, setCostText] = useState(
+    initial === blankGame ? "" : String(initial.costPerPerson ?? 0)
+  );
   const [error, setError] = useState("");
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -99,11 +120,15 @@ export default function GameForm({
   const dateRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLInputElement>(null);
   const playersRef = useRef<HTMLDivElement>(null);
+  const costRef = useRef<HTMLInputElement>(null);
+  const endTimeRef = useRef<HTMLInputElement>(null);
   const fieldRefs: Record<string, React.RefObject<HTMLElement>> = {
     title: titleRef,
     date: dateRef,
     location: locationRef,
     players: playersRef,
+    costPerPerson: costRef,
+    endTime: endTimeRef,
   };
 
   // Scrolls to and focuses the first invalid field so the user doesn't have
@@ -148,6 +173,8 @@ export default function GameForm({
       !form.title.trim() && "title",
       !form.date && "date",
       !form.location.trim() && "location",
+      !costText.trim() && "costPerPerson",
+      !form.endTime && "endTime",
     ].filter((f): f is string => !!f);
     if (missing.length > 0) {
       setError(missingFieldsMessage(missing));
@@ -325,26 +352,29 @@ export default function GameForm({
         />
       </Field>
 
-      <Field label="Cost per person (optional)">
+      <Field label="Cost per person">
         <div className="relative">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
             $
           </span>
           <input
-            type="number"
-            min={0}
-            step="0.01"
+            ref={costRef}
+            type="text"
             inputMode="decimal"
-            value={form.costPerPerson ? String(form.costPerPerson) : ""}
-            onChange={(e) => set("costPerPerson", Number(e.target.value) || 0)}
+            value={costText}
+            onChange={(e) => {
+              const cleaned = filterCostInput(e.target.value);
+              setCostText(cleaned);
+              set("costPerPerson", cleaned === "" ? 0 : Number(cleaned) || 0);
+            }}
             placeholder="0"
-            className={`${inputCls} pl-7`}
+            className={`${fieldCls(invalidFields.has("costPerPerson"))} pl-7`}
           />
         </div>
         <p className="mt-1 text-xs text-slate-400">
           Shown on the game before anyone joins, so nobody is surprised on the
           day. Players pay you directly — Coterie doesn't handle the money.
-          Leave blank if the game is free.
+          Enter 0 if the game is free.
         </p>
       </Field>
 
@@ -357,12 +387,13 @@ export default function GameForm({
             className={`${inputCls} min-w-0`}
           />
         </Field>
-        <Field label="End time (optional)">
+        <Field label="End time">
           <input
+            ref={endTimeRef}
             type="time"
             value={form.endTime}
             onChange={(e) => set("endTime", e.target.value)}
-            className={`${inputCls} min-w-0`}
+            className={`${fieldCls(invalidFields.has("endTime"))} min-w-0`}
           />
         </Field>
       </div>

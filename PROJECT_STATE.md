@@ -120,10 +120,41 @@ Ordered by priority. Update status inline as these move.
 | 25 | **`README.md` still has pre-rebrand drift** — brand colour listed as blue `#0b6ecd` (actual: red `#d92632`) and typeface listed as `Inter` (actual: Public Sans), a few lines below the 2026-07-30 name/tagline fix. Also references `Start Vybe.bat` by its literal filename — left alone since renaming it could break an existing desktop shortcut. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
 | 26 | **Mirror the 2026-07-31 Browse filters change to `coterie-prototype`** — court type + net height now multi-select, net height reordered, "All Levels" and every "Any" chip removed from the filter modal, Game-time range now clamps to stay valid. Fork shares this frontend. | ⬜ Not started |
+| 27 | **Mirror the 2026-07-31 GameForm required-fields change to `coterie-prototype`** — cost per person and end time are now compulsory (0 still valid for a free game), cost input restricted to digits + one decimal point. Fork shares this frontend. | ⬜ Not started |
 
 ---
 
 ## 5. Completed — do not redo
+
+**Cost per person + end time made compulsory on the host form (2026-07-31):**
+- Aidan: both were labelled "(optional)" in `GameForm.tsx` and had no
+  validation — a host could post a game with neither set.
+- ✅ **Cost per person** is now required, but 0 (free) is a fully valid
+  answer — the point was to stop the field being *skippable*, not to forbid
+  free games. This needed its own tracked `costText` string state rather than
+  reusing `form.costPerPerson` directly: the old input displayed `""` whenever
+  the numeric value was falsy (`0`), which made an untouched field
+  indistinguishable from an explicit "$0" — a host could submit without ever
+  seeing or touching the box. `costText` starts empty only for a genuinely new
+  game (detected via `initial === blankGame` reference equality, since
+  `CreateGame.tsx` passes that constant unmodified); editing an existing free
+  game now correctly shows `"0"`, since that value was already a real,
+  host-made decision.
+- ✅ Input switched from `type="number"` to `type="text"` +
+  `inputMode="decimal"` with a new `filterCostInput()` that strips everything
+  but digits and a single `.` on every keystroke — closes the gap where a
+  native number input still accepts `e`/`+`/`-` (e.g. `1e5`), which a `$`
+  field never should.
+- ✅ **End time** required the same way as the other required fields
+  (`missingFieldsMessage`, red border via `fieldCls`, scroll-and-focus via
+  `focusInvalid`) — no new validation pattern, just extended to a field that
+  had been skipping it.
+- Both labels dropped their "(optional)" suffix. `FIELD_LABEL` gained
+  `costPerPerson`/`endTime` entries so the combined "please fill in…" sentence
+  reads naturally when several fields are missing at once.
+- Verified: `npx tsc --noEmit` and `npm run build` both clean. Not yet
+  exercised live — same local-DB gap as the Browse filters change below (§
+  "How Aidan tests"), needs a check on the deployed PWA.
 
 **Browse filters — multi-select, reordered, validated (2026-07-31):**
 - Aidan: net height and court type were single-select when they should allow
