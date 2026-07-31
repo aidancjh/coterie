@@ -16,20 +16,21 @@ import { SearchIcon, XIcon } from "../components/icons";
 // ---------------------------------------------------------------------------
 
 const typeOptions = ["Indoor", "Beach", "Grass"];
-const skillOptions = ["All Levels", "Low Beginner", "High Beginner", "Low Intermediate", "High Intermediate", "Advanced"];
-const netOptions = ["Men's (2.43m)", "Women's (2.24m)", "Mixed (2.35m)"];
+const skillOptions = ["Low Beginner", "High Beginner", "Low Intermediate", "High Intermediate", "Advanced"];
+// Ascending by net height.
+const netOptions = ["Women's (2.24m)", "Mixed (2.35m)", "Men's (2.43m)"];
 const netLabels: Record<string, string> = {
-  "Men's (2.43m)": "Men's (2.43m)",
   "Women's (2.24m)": "Women's (2.24m)",
   "Mixed (2.35m)": "Mixed (2.35m)",
+  "Men's (2.43m)": "Men's (2.43m)",
 };
 // Same list and labels the host form uses.
 const positionOptions = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero"];
 
 interface Filters {
-  type: string;
+  types: string[];
   skills: string[];
-  netHeight: string;
+  netHeights: string[];
   positions: string[];
   minTime: number; // minutes since midnight, 0
   maxTime: number; // minutes since midnight, 1440
@@ -37,9 +38,9 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = {
-  type: "",
+  types: [],
   skills: [],
-  netHeight: "",
+  netHeights: [],
   positions: [],
   minTime: 0,
   maxTime: 1440,
@@ -63,9 +64,9 @@ function fmtClock(min: number): string {
 
 function activeFilterCount(f: Filters): number {
   return (
-    (f.type ? 1 : 0) +
+    (f.types.length > 0 ? 1 : 0) +
     (f.skills.length > 0 ? 1 : 0) +
-    (f.netHeight ? 1 : 0) +
+    (f.netHeights.length > 0 ? 1 : 0) +
     (f.positions.length > 0 ? 1 : 0) +
     (f.minTime > 0 || f.maxTime < 1440 ? 1 : 0) +
     (f.minOpenSpots > 0 ? 1 : 0)
@@ -77,8 +78,8 @@ function activeFilterCount(f: Filters): number {
 function filtersToParams(f: Filters, search: string): URLSearchParams {
   const p = new URLSearchParams();
   if (search.trim()) p.set("q", search.trim());
-  if (f.type) p.set("type", f.type);
-  if (f.netHeight) p.set("net", f.netHeight);
+  if (f.types.length) p.set("type", f.types.join(","));
+  if (f.netHeights.length) p.set("net", f.netHeights.join(","));
   if (f.skills.length) p.set("skills", f.skills.join(","));
   if (f.positions.length) p.set("pos", f.positions.join(","));
   if (f.minTime > 0 || f.maxTime < 1440) p.set("time", `${f.minTime}-${f.maxTime}`);
@@ -102,9 +103,9 @@ function paramsToState(p: URLSearchParams): { filters: Filters; search: string }
   return {
     search: p.get("q") || "",
     filters: {
-      type: p.get("type") || "",
+      types: list("type"),
       skills: list("skills"),
-      netHeight: p.get("net") || "",
+      netHeights: list("net"),
       positions: list("pos"),
       minTime,
       maxTime,
@@ -164,12 +165,15 @@ export default function BrowseGames() {
     const f = filters;
     return games
       .filter((g) => !isPast(g.date))
-      .filter((g) => (f.type ? g.type === f.type : true))
+      .filter((g) => (f.types.length > 0 ? f.types.includes(g.type) : true))
       .filter((g) => (f.skills.length > 0 ? f.skills.includes(g.skill) : true))
       .filter((g) =>
-        f.netHeight
-          ? g.netHeight === f.netHeight ||
-            (f.netHeight === "Mixed (2.35m)" && g.netHeight === "Recreational (2.35m)")
+        f.netHeights.length > 0
+          ? f.netHeights.some(
+              (nh) =>
+                g.netHeight === nh ||
+                (nh === "Mixed (2.35m)" && g.netHeight === "Recreational (2.35m)")
+            )
           : true
       )
       .filter((g) =>
@@ -486,14 +490,14 @@ function FilterModal({
           {/* Section 1 — Game details */}
           <div className="px-4 py-4">
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              <ChipGroup label="Court type" options={typeOptions} value={f.type} onChange={(v) => set({ type: v })} />
+              <MultiChipGroup label="Court type" options={typeOptions} values={f.types} onChange={(v) => set({ types: v })} />
               <MultiChipGroup label="Standard" options={skillOptions} values={f.skills} onChange={(v) => set({ skills: v })} />
             </div>
           </div>
 
           {/* Section 2 — Court & positions */}
           <div className="space-y-4 px-4 py-4">
-            <ChipGroup label="Net height" options={netOptions} labels={netLabels} value={f.netHeight} onChange={(v) => set({ netHeight: v })} />
+            <MultiChipGroup label="Net height" options={netOptions} labels={netLabels} values={f.netHeights} onChange={(v) => set({ netHeights: v })} />
             <MultiChipGroup label="Position needed" options={positionOptions} values={f.positions} onChange={(v) => set({ positions: v })} />
           </div>
 
@@ -511,7 +515,11 @@ function FilterModal({
                   <input
                     type="time"
                     value={f.minTime > 0 ? minsToHHMM(f.minTime) : ""}
-                    onChange={(e) => set({ minTime: e.target.value ? hhmmToMins(e.target.value) : 0 })}
+                    onChange={(e) => {
+                      const minTime = e.target.value ? hhmmToMins(e.target.value) : 0;
+                      // Keep the range valid — never let "From" land after "To".
+                      set(minTime > f.maxTime ? { minTime, maxTime: minTime } : { minTime });
+                    }}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-brand"
                   />
                 </label>
@@ -520,7 +528,11 @@ function FilterModal({
                   <input
                     type="time"
                     value={f.maxTime < 1440 ? minsToHHMM(f.maxTime) : ""}
-                    onChange={(e) => set({ maxTime: e.target.value ? hhmmToMins(e.target.value) : 1440 })}
+                    onChange={(e) => {
+                      const maxTime = e.target.value ? hhmmToMins(e.target.value) : 1440;
+                      // Keep the range valid — never let "To" land before "From".
+                      set(maxTime < f.minTime ? { maxTime, minTime: maxTime } : { maxTime });
+                    }}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-brand"
                   />
                 </label>
@@ -581,34 +593,6 @@ function FilterModal({
 // Small building blocks
 // ---------------------------------------------------------------------------
 
-function ChipGroup({
-  label,
-  options,
-  value,
-  onChange,
-  labels,
-}: {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-  labels?: Record<string, string>;
-}) {
-  return (
-    <div>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <div className="flex flex-wrap gap-1.5">
-        <Chip active={!value} onClick={() => onChange("")}>Any</Chip>
-        {options.map((o) => (
-          <Chip key={o} active={value === o} onClick={() => onChange(value === o ? "" : o)}>
-            {labels?.[o] ?? o}
-          </Chip>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function MultiChipGroup({
   label,
   options,
@@ -628,7 +612,6 @@ function MultiChipGroup({
     <div>
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
       <div className="flex flex-wrap gap-1.5">
-        <Chip active={values.length === 0} onClick={() => onChange([])}>Any</Chip>
         {options.map((o) => (
           <Chip key={o} active={values.includes(o)} onClick={() => toggle(o)}>
             {labels?.[o] ?? o}

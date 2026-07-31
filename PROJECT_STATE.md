@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-07-30 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-07-31 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -119,10 +119,49 @@ Ordered by priority. Update status inline as these move.
 | 23 | **Mirror the 2026-07-30 price-display fix to `coterie-prototype`** — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`. | ⬜ Not started |
 | 25 | **`README.md` still has pre-rebrand drift** — brand colour listed as blue `#0b6ecd` (actual: red `#d92632`) and typeface listed as `Inter` (actual: Public Sans), a few lines below the 2026-07-30 name/tagline fix. Also references `Start Vybe.bat` by its literal filename — left alone since renaming it could break an existing desktop shortcut. | ⬜ Not started |
 | 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
+| 26 | **Mirror the 2026-07-31 Browse filters change to `coterie-prototype`** — court type + net height now multi-select, net height reordered, "All Levels" and every "Any" chip removed from the filter modal, Game-time range now clamps to stay valid. Fork shares this frontend. | ⬜ Not started |
 
 ---
 
 ## 5. Completed — do not redo
+
+**Browse filters — multi-select, reordered, validated (2026-07-31):**
+- Aidan: net height and court type were single-select when they should allow
+  multiple; net height's option order didn't follow actual height; "Standard"
+  (skill) still offered "All Levels" and every group had a separate "Any" chip
+  to clear it, which he wanted gone now that no-selection already means "no
+  filter."
+- ✅ `Filters.type`/`.netHeight` (single strings) → `.types`/`.netHeights`
+  (arrays) in `src/pages/BrowseGames.tsx`, matching how `.skills`/`.positions`
+  already worked. Court type and net height now render through the existing
+  `MultiChipGroup` instead of the single-select `ChipGroup`, which is deleted
+  (no remaining callers). URL param sync (`filtersToParams`/`paramsToState`)
+  and the `visible` filter pipeline updated to `.includes()`/`.some()` over
+  the arrays; the `netHeight === "Mixed" matches legacy "Recreational"` quirk
+  preserved per-item in the new `.some()`.
+- ✅ `netOptions` reordered ascending by actual height: Women's (2.24m) →
+  Mixed (2.35m) → Men's (2.43m) (was Men's/Women's/Mixed).
+- ✅ "All Levels" removed from the Standard filter's `skillOptions` — filter
+  chip only, **not** touched in `GameForm.tsx`'s `skills` list, so hosts can
+  still tag a game "All Levels"; there's just no chip to filter for it. Mirrors
+  the precedent already set for the *personal* skill picker (§ "Retired
+  options" in the 2026-07-27 entry above), now extended to this filter.
+- ✅ The "Any" clear-all chip removed from `MultiChipGroup` across all four
+  groups (court type, standard, net height, position needed) — deselecting a
+  group already means "no filter," so the extra chip was redundant with just
+  tapping active chips off, or "Reset" in the footer.
+- ✅ **Date validation**, scoped by Aidan to the existing Game-time From/To
+  range (Browse has no separate date field, only this time-of-day range):
+  changing From past the current To (or To before the current From) now
+  clamps the other bound to match, so the range can never invert into a
+  filter that silently returns zero games.
+- Verified: `npx tsc --noEmit` clean. Could not exercise the modal live —
+  local dev has no `DATABASE_URL` (see § "How Aidan tests"), login 500s
+  locally as expected; needs verification on the deployed PWA per the usual
+  workflow.
+- **Not yet done:** mirror to `coterie-prototype` — same situation as #20/22/23
+  above, needs its own `railway up --service web --ci` since that fork shares
+  this frontend.
 
 **Real participation rate + profile UI cleanup (2026-07-27):**
 - ✅ **Participation % is now real.** It was a placeholder (`80 + played +
