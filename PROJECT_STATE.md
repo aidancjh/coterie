@@ -688,6 +688,21 @@ Ordered by priority. Update status inline as these move.
   transformation/allowlist either side, so both stay in sync automatically.
 - Not yet done: mirroring the capture side to `coterie-prototype` (task #20).
 
+**Funnel tab intermittent 500 fix (2026-08-02):**
+- Aidan reported the admin Funnel tab showing "PostHog data unavailable
+  (PostHog query failed (500))". Reproduced by hand: hit PostHog's HogQL query
+  endpoint directly (project 494538) with the exact `FUNNEL_QUERY` from
+  `server/posthog.js` — PostHog returned `{"type":"server_error",...,"detail":
+  "ClickHouse error while executing query."}` (500) on the first call, then
+  200 with correct results on every retry of the identical query seconds later.
+  Genuinely transient ClickHouse-side blip, not a bad query or bad credentials.
+- Root cause: `RETRYABLE_STATUSES` in `server/posthog.js` only covered
+  `429/502/503/504` — 500 was treated as a permanent failure and surfaced
+  immediately instead of being retried like the other gateway blips.
+- ✅ Fixed: added 500 to `RETRYABLE_STATUSES`. Added a test
+  (`tests/posthog.test.js`) asserting a 500 is retried and succeeds on the
+  second attempt, same shape as the existing 504 test.
+
 **Favicon white-border fix (2026-07-27):**
 - ✅ `scripts/gen-logo.mjs`: the 2026-07-26 black-square fix (commit `4a9aa94`) put
   every icon — including the browser-tab favicon — on a padded white tile, to stop

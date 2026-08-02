@@ -101,7 +101,11 @@ function toDateString(value) {
   return String(value).slice(0, 10);
 }
 
-const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+// 500 included alongside the gateway codes: PostHog's query endpoint returns
+// a generic 500 "ClickHouse error while executing query" for transient
+// ClickHouse-side hiccups too (confirmed by hand — the exact same query
+// succeeds on immediate retry), not just genuine query bugs.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 2;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

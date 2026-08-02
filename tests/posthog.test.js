@@ -76,9 +76,25 @@ describe("posthog.queryWaitlistFunnel", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  describe("transient-failure retry (429/502/503/504)", () => {
+  describe("transient-failure retry (429/500/502/503/504)", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
+
+    it("retries a 500 (transient ClickHouse error) and succeeds on the second attempt", async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ results: [[120, 45, 30]] }) });
+      vi.stubGlobal("fetch", fetchMock);
+
+      const { queryWaitlistFunnel } = await import("../server/posthog.js");
+      const resultPromise = queryWaitlistFunnel();
+      await vi.runAllTimersAsync();
+      const result = await resultPromise;
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ visits: 120, started: 45, submittedPosthog: 30 });
+    });
 
     it("retries a 504 and succeeds on the second attempt", async () => {
       const fetchMock = vi
