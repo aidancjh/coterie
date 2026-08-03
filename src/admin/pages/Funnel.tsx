@@ -85,13 +85,6 @@ const UNKNOWN_SOURCE_COLOR = "#cbd5e1";
 const colorForSource = (s: string) => SOURCE_COLORS[s] ?? UNKNOWN_SOURCE_COLOR;
 const labelForSource = (s: string) => SOURCE_LABELS[s] ?? s;
 
-// Horizontal room per day once every date is labelled. Dates are drawn rotated,
-// so this only has to clear the *width* of a tick, not the text length.
-const DAY_SLOT = 22;
-// Floor so a chart with only a handful of days still fills a full-width card
-// instead of huddling in the left third of it.
-const BASE_CHART_W = 660;
-
 // "Nice" integer axis ticks from 0 up to at least max (~`targetSteps` steps of
 // 1/2/5×10ⁿ). Guarantees whole-number increments so count axes never show
 // fractions. Pass a larger targetSteps for a denser, finer-grained axis.
@@ -178,14 +171,12 @@ function DateAxisLabels({
   );
 }
 
-// A chart wide enough to label every day will outgrow its card. Scroll it
-// inside its own box rather than letting it push the page sideways.
-function ScrollableChart({ children }: { children: ReactNode }) {
-  return <div className="-mx-1 overflow-x-auto px-1">{children}</div>;
-}
-
 // Dependency-free SVG line+area chart with a real y-axis: whole-number
-// gridlines + labels up the side, and every date along the bottom.
+// gridlines + labels up the side, and every date along the bottom. The window
+// feeding this is capped at WINDOW_DAYS by the caller (see HistorySlider),
+// so a fixed internal coordinate space plus CSS-driven scaling (no explicit
+// width/height attribute, just viewBox) is enough — it never has more dates
+// to fit than that cap, however long the account's history gets.
 function TimeSeriesLineChart({
   rows,
   emptyText,
@@ -203,13 +194,13 @@ function TimeSeriesLineChart({
   if (rows.length === 0) return <p className="text-xs text-slate-400">{emptyText}</p>;
 
   const plotLeft = 30;
-  const w = Math.max(BASE_CHART_W, plotLeft + rows.length * DAY_SLOT + 12);
-  const h = 300;
+  const w = 480;
+  const h = 260;
   const plotRight = w - 8;
   const plotTop = 12;
   // Rotated date labels need far more room under the plot than the old sparse
   // horizontal ones did.
-  const plotBottom = h - 54;
+  const plotBottom = h - 46;
   const ticks = niceTicks(Math.max(...rows.map((r) => r.count)), tickSteps);
   const axisMax = ticks[ticks.length - 1];
   const stepX = rows.length > 1 ? (plotRight - plotLeft) / (rows.length - 1) : 0;
@@ -219,32 +210,32 @@ function TimeSeriesLineChart({
   const areaPoints = `${xOf(0)},${plotBottom} ${linePoints} ${xOf(rows.length - 1)},${plotBottom}`;
 
   return (
-    <ScrollableChart>
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
-            <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
-          </g>
-        ))}
-        <polygon points={areaPoints} fill={color} fillOpacity="0.12" />
-        <polyline points={linePoints} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-        {/* One dot per day, with a native tooltip (hover/tap) showing the exact count. */}
-        {rows.map((r, i) => (
-          <circle key={r.date} cx={xOf(i)} cy={yOf(r.count)} r="2.5" fill={color}>
-            <title>{`${r.date}: ${r.count}`}</title>
-          </circle>
-        ))}
-        <DateAxisLabels dates={rows.map((r) => r.date)} xOf={xOf} y={plotBottom + 12} />
-      </svg>
-    </ScrollableChart>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={ariaLabel}>
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
+          <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
+        </g>
+      ))}
+      <polygon points={areaPoints} fill={color} fillOpacity="0.12" />
+      <polyline points={linePoints} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {/* One dot per day, with a native tooltip (hover/tap) showing the exact count. */}
+      {rows.map((r, i) => (
+        <circle key={r.date} cx={xOf(i)} cy={yOf(r.count)} r="2.5" fill={color}>
+          <title>{`${r.date}: ${r.count}`}</title>
+        </circle>
+      ))}
+      <DateAxisLabels dates={rows.map((r) => r.date)} xOf={xOf} y={plotBottom + 12} />
+    </svg>
   );
 }
 
 // Stacked daily bars: one bar per day, one segment per channel, so you can read
 // both "how many signed up that day" and "where they came from" at once. Bars
 // (not lines) because most days are small whole numbers and several channels
-// sit at zero — overlapping lines at y=0 would be unreadable.
+// sit at zero — overlapping lines at y=0 would be unreadable. Same fixed
+// viewBox reasoning as TimeSeriesLineChart — the caller caps this at
+// WINDOW_DAYS, so it never needs to grow with total history.
 function StackedSourceTimeline({
   data,
   emptyText,
@@ -254,16 +245,21 @@ function StackedSourceTimeline({
   emptyText: string;
   ariaLabel: string;
 }) {
-  const { sources, days } = data;
-  if (days.length === 0 || sources.length === 0)
+  const { sources: allSources, days } = data;
+  if (days.length === 0 || allSources.length === 0)
     return <p className="text-xs text-slate-400">{emptyText}</p>;
 
+  // The legend and the stack itself only need the channels that actually have
+  // signups somewhere in THIS window — showing a swatch for a channel with
+  // zero bars anywhere on screen just raises "why is that here?".
+  const sources = allSources.filter((s) => days.some((d) => (d.counts[s] || 0) > 0));
+
   const plotLeft = 30;
-  const w = Math.max(BASE_CHART_W, plotLeft + days.length * DAY_SLOT + 12);
-  const h = 320;
+  const w = 480;
+  const h = 280;
   const plotRight = w - 8;
   const plotTop = 12;
-  const plotBottom = h - 54;
+  const plotBottom = h - 46;
   const ticks = niceTicks(Math.max(...days.map((d) => d.total)), 5);
   const axisMax = ticks[ticks.length - 1];
   const slot = (plotRight - plotLeft) / days.length;
@@ -287,70 +283,68 @@ function StackedSourceTimeline({
         ))}
       </ul>
 
-      <ScrollableChart>
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel}>
-          {ticks.map((t) => (
-            <g key={t}>
-              <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
-              <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={ariaLabel}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
+            <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
+          </g>
+        ))}
+
+        {days.map((d, i) => {
+          // Stack upward from the baseline in the legend's order, so the same
+          // channel sits in the same band on every bar.
+          let cursor = 0;
+          return (
+            <g key={d.date}>
+              {sources.map((s) => {
+                const v = d.counts[s] || 0;
+                if (v === 0) return null;
+                const yTop = yOf(cursor + v);
+                const yBase = yOf(cursor);
+                cursor += v;
+                // 1px surface gap between segments so adjacent hues never
+                // bleed into one another.
+                const segH = Math.max(1, yBase - yTop - 1);
+                return (
+                  <rect
+                    key={s}
+                    x={centerOf(i) - barW / 2}
+                    y={yTop}
+                    width={barW}
+                    height={segH}
+                    fill={colorForSource(s)}
+                  >
+                    <title>{`${d.date} · ${labelForSource(s)}: ${v}`}</title>
+                  </rect>
+                );
+              })}
+              {/* Whole-bar hit area: gives zero days a tooltip too, and makes
+                  the day total readable without hovering each segment. */}
+              <rect
+                x={centerOf(i) - slot / 2}
+                y={plotTop}
+                width={slot}
+                height={plotBottom - plotTop}
+                fill="transparent"
+              >
+                <title>
+                  {`${d.date} — ${d.total} signup${d.total === 1 ? "" : "s"}` +
+                    (d.total > 0
+                      ? `\n${sources
+                          .filter((s) => (d.counts[s] || 0) > 0)
+                          .map((s) => `${labelForSource(s)}: ${d.counts[s]}`)
+                          .join("\n")}`
+                      : "")}
+                </title>
+              </rect>
             </g>
-          ))}
+          );
+        })}
 
-          {days.map((d, i) => {
-            // Stack upward from the baseline in the legend's order, so the same
-            // channel sits in the same band on every bar.
-            let cursor = 0;
-            return (
-              <g key={d.date}>
-                {sources.map((s) => {
-                  const v = d.counts[s] || 0;
-                  if (v === 0) return null;
-                  const yTop = yOf(cursor + v);
-                  const yBase = yOf(cursor);
-                  cursor += v;
-                  // 1px surface gap between segments so adjacent hues never
-                  // bleed into one another.
-                  const segH = Math.max(1, yBase - yTop - 1);
-                  return (
-                    <rect
-                      key={s}
-                      x={centerOf(i) - barW / 2}
-                      y={yTop}
-                      width={barW}
-                      height={segH}
-                      fill={colorForSource(s)}
-                    >
-                      <title>{`${d.date} · ${labelForSource(s)}: ${v}`}</title>
-                    </rect>
-                  );
-                })}
-                {/* Whole-bar hit area: gives zero days a tooltip too, and makes
-                    the day total readable without hovering each segment. */}
-                <rect
-                  x={centerOf(i) - slot / 2}
-                  y={plotTop}
-                  width={slot}
-                  height={plotBottom - plotTop}
-                  fill="transparent"
-                >
-                  <title>
-                    {`${d.date} — ${d.total} signup${d.total === 1 ? "" : "s"}` +
-                      (d.total > 0
-                        ? `\n${sources
-                            .filter((s) => (d.counts[s] || 0) > 0)
-                            .map((s) => `${labelForSource(s)}: ${d.counts[s]}`)
-                            .join("\n")}`
-                        : "")}
-                  </title>
-                </rect>
-              </g>
-            );
-          })}
-
-          <line x1={plotLeft} y1={plotBottom} x2={plotRight} y2={plotBottom} stroke="#E2E8F0" strokeWidth="1" />
-          <DateAxisLabels dates={days.map((d) => d.date)} xOf={centerOf} y={plotBottom + 12} />
-        </svg>
-      </ScrollableChart>
+        <line x1={plotLeft} y1={plotBottom} x2={plotRight} y2={plotBottom} stroke="#E2E8F0" strokeWidth="1" />
+        <DateAxisLabels dates={days.map((d) => d.date)} xOf={centerOf} y={plotBottom + 12} />
+      </svg>
     </div>
   );
 }
@@ -406,18 +400,18 @@ function SourceBarChart({ rows, emptyText }: { rows: WaitlistSourceStat[]; empty
   );
 }
 
-// How many trailing days the charts show by default — expanded via the range
-// toggle below. 14 days is the common default across analytics dashboards
-// (Stripe, Vercel Analytics, Plausible all default a chart to a 2-4 week
-// window before you have to ask for more).
+// Fixed size of the window the charts show — not just a default, an actual
+// cap. A whole year of history would make an every-date axis and a legend
+// unreadable no matter how it's laid out, so the charts never see more than
+// this many days at once; HistorySlider is how you move which 14 days that is.
 const WINDOW_DAYS = 14;
 
-// Recomputes {source, count, percent} totals from a (possibly windowed) slice
-// of the per-day-by-source series, so "Signups by source" can show "top
-// channels in the last 14 days" and not only ever an all-time total. Mirrors
-// the backend's withRealShare rounding (one decimal place). There's no 'test'
-// row to exclude here — the API already filters it out before this data ever
-// reaches the client, same as the rest of signupsByDaySource.
+// Recomputes {source, count, percent} totals from whichever WINDOW_DAYS slice
+// of the per-day-by-source series is currently in view, so "Signups by
+// source" reflects the visible window instead of only ever an all-time total.
+// Mirrors the backend's withRealShare rounding (one decimal place). There's no
+// 'test' row to exclude here — the API already filters it out before this
+// data ever reaches the client, same as the rest of signupsByDaySource.
 function sumBySourceOverWindow(windowed: WaitlistDailyBySource): WaitlistSourceStat[] {
   const totals = new Map<string, number>();
   for (const day of windowed.days) {
@@ -435,47 +429,82 @@ function sumBySourceOverWindow(windowed: WaitlistDailyBySource): WaitlistSourceS
     .sort((a, b) => b.count - a.count);
 }
 
-// Segmented pill toggle — the standard shape for a chart date-range switch
-// (Stripe, Vercel Analytics, Plausible all use this exact two/three-option
-// pill rather than a dropdown when there are only a couple of choices).
-// Governs the three range-aware cards below; unaffected cards (Conversion
-// rate, Signups by video) keep their own fixed "(all time)" title so it's
-// clear at a glance which cards this does and doesn't touch.
-function RangeToggle({
-  showAll,
-  onToggle,
-  totalDays,
+// "2026-08-03" -> "Aug 3". UTC-pinned so a day string never shifts by one
+// depending on the browser's local timezone.
+function formatShortDate(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// "Jul 21 – Aug 3, 2026" — year shown once, at the end, unless the window
+// straddles a year boundary (then both sides get one).
+function formatRangeLabel(startDate: string, endDate: string): string {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", timeZone: "UTC" };
+  const startFmt = start.toLocaleDateString("en-US", sameYear ? opts : { ...opts, year: "numeric" });
+  const endFmt = end.toLocaleDateString("en-US", { ...opts, year: "numeric" });
+  return `${startFmt} – ${endFmt}`;
+}
+
+// A history scrubber, not a toggle: the window is always WINDOW_DAYS wide, and
+// this native range input moves WHICH window that is across the account's
+// whole history. Unlike a "last 14 days / all time" switch, this scales to a
+// year of data without ever asking a chart to render more than WINDOW_DAYS
+// points — sliding left just walks the same fixed-size window backwards.
+// The first/last date labels under the track are the two ends of the entire
+// available range, so it's always clear how far back you can go.
+function HistorySlider({
+  start,
+  maxStart,
+  onChange,
+  earliestDate,
+  latestDate,
+  windowStartDate,
+  windowEndDate,
 }: {
-  showAll: boolean;
-  onToggle: () => void;
-  totalDays: number;
+  start: number;
+  maxStart: number;
+  onChange: (start: number) => void;
+  earliestDate: string;
+  latestDate: string;
+  windowStartDate: string;
+  windowEndDate: string;
 }) {
+  const atLatest = start >= maxStart;
   return (
-    <div
-      role="tablist"
-      aria-label="Date range for the charts below"
-      className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium"
-    >
-      <button
-        role="tab"
-        aria-selected={!showAll}
-        onClick={() => showAll && onToggle()}
-        className={`rounded-md px-3 py-1.5 transition ${
-          !showAll ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-        }`}
-      >
-        Last {WINDOW_DAYS} days
-      </button>
-      <button
-        role="tab"
-        aria-selected={showAll}
-        onClick={() => !showAll && onToggle()}
-        className={`rounded-md px-3 py-1.5 transition ${
-          showAll ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-        }`}
-      >
-        All time ({totalDays}d)
-      </button>
+    <div className="space-y-1.5 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-slate-700">
+          {formatRangeLabel(windowStartDate, windowEndDate)}
+        </span>
+        {!atLatest && (
+          <button
+            onClick={() => onChange(maxStart)}
+            className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+          >
+            Jump to latest →
+          </button>
+        )}
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={maxStart}
+        step={1}
+        value={start}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={`Move the ${WINDOW_DAYS}-day window across the full signup history`}
+        className="w-full accent-emerald-500"
+      />
+      <div className="flex justify-between text-[10px] text-slate-400">
+        <span>{formatShortDate(earliestDate)}</span>
+        <span>{formatShortDate(latestDate)}</span>
+      </div>
     </div>
   );
 }
@@ -485,7 +514,13 @@ export default function Funnel() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [showAllTime, setShowAllTime] = useState(false);
+  // Index into signupsByDay/signupsByDaySource.days marking the start of the
+  // visible WINDOW_DAYS-wide window. Infinity means "stick to the most recent
+  // window" — resolved against the real day count once data loads, so the
+  // very first render (and every refresh) defaults to "latest" without a
+  // useEffect. Once the slider is dragged it becomes a concrete index and
+  // stays there across a refresh, same as any other scrubber.
+  const [windowStart, setWindowStart] = useState(Infinity);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -533,17 +568,26 @@ export default function Funnel() {
   ];
 
   // Windowing for the three range-aware cards (signups over time, signups per
-  // day by source, signups by source). The toggle only appears once there's
-  // more history than the default window to expand into.
+  // day by source, signups by source). The slider only appears once there's
+  // more history than one window holds — otherwise there's nowhere to scrub.
   const totalDays = data.signupsByDay.length;
-  const canToggleRange = totalDays > WINDOW_DAYS;
-  const rangeLabel = showAllTime ? "all time" : `last ${WINDOW_DAYS} days`;
-  const windowedSignupsByDay = showAllTime ? data.signupsByDay : data.signupsByDay.slice(-WINDOW_DAYS);
+  const maxStartIndex = Math.max(0, totalDays - WINDOW_DAYS);
+  const canScrub = totalDays > WINDOW_DAYS;
+  const start = Math.min(windowStart, maxStartIndex);
+  const windowedSignupsByDay = data.signupsByDay.slice(start, start + WINDOW_DAYS);
   const windowedSignupsByDaySource: WaitlistDailyBySource = {
     sources: data.signupsByDaySource.sources,
-    days: showAllTime ? data.signupsByDaySource.days : data.signupsByDaySource.days.slice(-WINDOW_DAYS),
+    days: data.signupsByDaySource.days.slice(start, start + WINDOW_DAYS),
   };
-  const windowedBySource = showAllTime ? data.bySource : sumBySourceOverWindow(windowedSignupsByDaySource);
+  const windowedBySource = sumBySourceOverWindow(windowedSignupsByDaySource);
+  // Only meaningful once there's at least one real day to anchor a range
+  // label to — a brand-new waitlist with zero signups has none.
+  const windowStartDate = windowedSignupsByDay[0]?.date;
+  const windowEndDate = windowedSignupsByDay[windowedSignupsByDay.length - 1]?.date;
+  const bySourceTitle =
+    windowStartDate && windowEndDate
+      ? `Signups by source (${formatRangeLabel(windowStartDate, windowEndDate)})`
+      : "Signups by source";
 
   // Drop-off funnel: visits → started the waitlist form → actually submitted.
   // `started`/`startedRate` already come back from the API but were never
@@ -596,44 +640,51 @@ export default function Funnel() {
         </p>
       )}
 
-      {/* Shared range control for the three cards below — defaults to the
-          trailing 14 days, expandable to full history. Hidden once there's no
-          more history to expand into. */}
-      {canToggleRange && (
-        <div className="flex justify-end">
-          <RangeToggle showAll={showAllTime} onToggle={() => setShowAllTime((v) => !v)} totalDays={totalDays} />
-        </div>
+      {/* Shared history scrubber for the three range-aware cards below — always
+          a WINDOW_DAYS-wide window, defaulting to the most recent one. Hidden
+          once there's no more history to scrub into. */}
+      {/* canScrub (totalDays > WINDOW_DAYS) guarantees a full window exists,
+          so windowStartDate/windowEndDate are real dates here. */}
+      {canScrub && windowStartDate && windowEndDate && (
+        <HistorySlider
+          start={start}
+          maxStart={maxStartIndex}
+          onChange={setWindowStart}
+          earliestDate={data.signupsByDay[0].date}
+          latestDate={data.signupsByDay[data.signupsByDay.length - 1].date}
+          windowStartDate={windowStartDate}
+          windowEndDate={windowEndDate}
+        />
       )}
 
-      {/* 1. Signups over time — full width so every single date fits along the
-          x-axis. All-time totals (not "since launch") because these are real
-          people already on the list; the range toggle above controls the
-          window shown. */}
-      <Card title={`Signups over time (${rangeLabel})`}>
-        <TimeSeriesLineChart
-          rows={windowedSignupsByDay}
-          emptyText="No signups yet."
-          color="#10B981"
-          ariaLabel={`Signups per day, ${windowedSignupsByDay.length} days`}
-        />
-      </Card>
+      {/* 1 & 2. Signups over time and the same days split by channel, side by
+          side — sharing the scrubber above them, on the same date axis, so a
+          spike on the left can be read back to the channel on the right that
+          caused it. The per-source chart is sourced from our own waitlist
+          table (exact, immune to ad blockers), not PostHog. */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card title="Signups over time">
+          <TimeSeriesLineChart
+            rows={windowedSignupsByDay}
+            emptyText="No signups yet."
+            color="#10B981"
+            ariaLabel={`Signups per day, ${windowedSignupsByDay.length} days`}
+          />
+        </Card>
 
-      {/* 2. The same daily signups, split by the channel they came from, on the
-          same date axis and same range as the total line above — so a spike
-          can be read back to the channel that caused it. Sourced from our own
-          waitlist table (exact, immune to ad blockers), not PostHog. */}
-      <Card title={`Signups per day by source (${rangeLabel})`}>
-        <StackedSourceTimeline
-          data={windowedSignupsByDaySource}
-          emptyText="No signups yet."
-          ariaLabel={`Signups per day broken down by source, ${windowedSignupsByDaySource.days.length} days`}
-        />
-      </Card>
+        <Card title="Signups per day by source">
+          <StackedSourceTimeline
+            data={windowedSignupsByDaySource}
+            emptyText="No signups yet."
+            ariaLabel={`Signups per day broken down by source, ${windowedSignupsByDaySource.days.length} days`}
+          />
+        </Card>
+      </div>
 
       {/* 3 & 4. Conversion rate in a box of its own, to the left of signups by
           source. Conversion rate is NOT range-controlled (it's an all-time
-          summary), which is why its title stays fixed while the card beside
-          it changes with the toggle. */}
+          summary) — the card beside it is, which is why only that one's title
+          names the window. */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Conversion rate">
           <div className="flex flex-wrap gap-2">
@@ -680,18 +731,18 @@ export default function Funnel() {
         </Card>
 
         {/* Signups by source — our own DB (exact, immune to ad blockers).
-            Range-controlled by the same toggle as the two cards above: in the
-            14-day view this re-ranks to the top channels for that window,
-            recomputed client-side from signupsByDaySource (sumBySourceOverWindow)
-            rather than a separate API call. */}
-        <Card title={`Signups by source (${rangeLabel})`}>
+            Follows the same scrubber as the two cards above: this re-ranks to
+            the top channels for whichever window is selected, recomputed
+            client-side from signupsByDaySource (sumBySourceOverWindow) rather
+            than a separate API call. */}
+        <Card title={bySourceTitle}>
           <SourceBarChart rows={windowedBySource} emptyText="No signups yet." />
         </Card>
       </div>
 
       {/* 5. Signups by video — our own DB (utm_campaign, captured on submit
           same as source), exact and immune to ad blockers. Not range-controlled
-          (all time) — the toggle above only governs the three cards it sits
+          (all time) — the scrubber above only governs the three cards it sits
           beside. */}
       <Card title="Signups by video (all time)">
         <SourceBarChart rows={data.byCampaign} emptyText="No signups yet." />

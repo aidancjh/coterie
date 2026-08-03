@@ -126,6 +126,51 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Funnel tab: side-by-side charts, history slider replaces the 14-day/all-time toggle (2026-08-03):**
+- Follow-up to the same-day toggle change below. Aidan pointed out the side-by-
+  side desktop layout left the two time-series cards mostly empty space, and
+  asked how "all time" would even work with a year of data — rendering 365
+  date labels at once was never going to be readable regardless of layout.
+- ✅ Replaced the "Last 14 days / All time" pill (`RangeToggle`, removed) with
+  `HistorySlider`: a native `<input type="range">` that scrubs a
+  **fixed-size, always-14-day window** across the full history, rather than
+  ever expanding the window itself. This is the actual fix for the "a year of
+  data" problem — the charts never receive more than `WINDOW_DAYS` (14) rows
+  regardless of how much history exists, so there's no unreadable-axis case to
+  solve for. Shows the resolved range ("Jul 21 – Aug 3, 2026") above the
+  slider, the two ends of the *entire* available history below it, and a
+  "Jump to latest →" link that only appears once you've scrubbed away from the
+  current window. Hidden entirely when there's ≤14 days of history (nothing to
+  scrub into) — same `canScrub` guard as before, renamed from `canToggleRange`.
+- ✅ "Signups over time" and "Signups per day by source" now sit side by side
+  in a `grid md:grid-cols-2` (stacks on mobile, same as the existing
+  Conversion-rate/Signups-by-source row). Since the window is capped at 14
+  days, both charts dropped their dynamic pixel-width-plus-horizontal-scroll
+  sizing (`DAY_SLOT`/`BASE_CHART_W`/`ScrollableChart` — all removed as dead
+  code) in favour of a fixed internal `viewBox` with `className="w-full"`, the
+  standard responsive-SVG technique (no `width`/`height` attributes, so it
+  scales to fill whichever column it's in). "Signups by source" continues to
+  reflect the currently-scrubbed window via the same `sumBySourceOverWindow()`
+  from the earlier change, just driven by slider position instead of a
+  boolean.
+- ✅ New: `StackedSourceTimeline`'s legend now filters to only the channels
+  with at least one signup *within the current window*, instead of always
+  listing every channel that ever existed all-time — a channel with zero bars
+  anywhere on screen no longer sits in the legend asking "why is this here?".
+- ✅ Verified on a **simulated full year (365 days)** of realistic data via the
+  same interactive static-harness approach as the prior two changes (still no
+  `.env.admin` locally): default window is the most recent 14 days
+  (`Jul 21 – Aug 3, 2026`); dragging the slider to index 0 resolves to
+  `Aug 4 – Aug 17, 2025` with exactly 14 date labels and zero overlapping
+  pairs — proving the window size truly never grows with total history;
+  "Jump to latest" correctly returns to the latest window and hides itself
+  once there; at 1400px the two charts sit side by side at 676px each, filling
+  the row edge-to-edge (closing the empty-space gap Aidan flagged). Mobile
+  stacking wasn't independently re-verified this pass — the Browser pane
+  wasn't actually compositing/resizing this session — but rests on the exact
+  same `md:grid-cols-2` classes already proven in production one row below.
+  `tsc --noEmit`, 103/103 tests, and both production bundles all clean.
+
 **Funnel tab: remove Pageviews by video, default to last 14 days + range toggle (2026-08-03):**
 - Follow-up to the same-day Funnel reshuffle below. Aidan wanted "Pageviews by
   video" gone, and "Signups over time" / "Signups by source" trimmed to a
