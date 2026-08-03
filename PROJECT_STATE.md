@@ -126,6 +126,55 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Funnel tab: every date on the axis, per-source daily timeline, layout reshuffle (2026-08-03):**
+- Aidan wanted every single date labelled on the Funnel charts (not the old
+  6-label sparse axis), the pageviews-over-time and pageviews-by-source cards
+  removed, Conversion rate moved into its own box to the left of Signups by
+  source, and a new timeline showing daily signups broken down by channel
+  (reddit, insta, etc).
+- ✅ Backend: `repo.getWaitlistSignupsByDaySource()` (`server/repo.js`) — daily
+  signup counts grouped by `(date, source)`, same `source != 'test'` exclusion
+  as the existing day/source queries. `adminRoutes.js`'s `alignDailySeries` now
+  also returns the shared `dates` axis it already computed internally; a new
+  `buildDailyBySource(dates, rawRows)` zero-fills the per-source rows onto that
+  *same* axis and returns `{ sources, days: [{ date, counts, total }] }` — legend
+  order is all-time-volume descending, but colour is keyed by source name, not
+  position, so a quiet week can't repaint a channel's colour. Verified
+  read-only against the real production DB (Railway `coterie_main` env): 53
+  rows, 6 real sources, 32 active days, and every day's per-source stack sums
+  exactly to that day's existing total-signups count.
+- ✅ Frontend (`src/admin/pages/Funnel.tsx`): removed the "Pageviews over time"
+  and "Pageviews by source" cards entirely (PostHog visit-day/by-source data is
+  still returned by the API and still typed, just no longer charted — see the
+  comment on `visitsBySource`/`visitsByDay` in `adminService.ts`). Conversion
+  rate + the drop-off funnel now sit in their own card in a
+  `grid md:grid-cols-2` next to Signups by source. New `StackedSourceTimeline`
+  component renders one stacked bar per day (bars, not lines — several channels
+  sit at zero most days) with a colour-keyed legend. Both time-series charts
+  now label every date (rotated -60°, `DateAxisLabels` shared helper) instead
+  of the old 6-label sparse axis; since a full date range no longer fits a
+  fixed-width SVG, both charts size to `max(660px, dates × 22px)` and scroll
+  horizontally inside their own box (`ScrollableChart`) rather than pushing the
+  page sideways — checked at 375/768/1200 wide via a static harness reproducing
+  the exact chart-building logic against realistic data (no `.env.admin`
+  locally, so the real admin app couldn't be run end-to-end): 40 date labels
+  render with zero overlapping pairs on both charts, and the page itself never
+  gains horizontal scroll.
+- ✅ Categorical colours (`SOURCE_COLORS` in `Funnel.tsx`) are the dataviz
+  skill's validated 8-hue order (blue/orange/aqua/yellow/magenta/green/violet/
+  red) — `validate_palette.js --mode light` passes all checks (worst adjacent
+  CVD ΔE 9.1, worst normal-vision ΔE 19.6); `direct` (unattributed) is grey by
+  design, excluded from the categorical set since it's a residual bucket, not a
+  competing channel. Three hues sit under the 3:1 contrast floor against white,
+  which is why every segment has a legend label and an exact-count tooltip
+  rather than relying on colour alone.
+- ✅ `tests/adminRoutes.test.js`: added `getWaitlistSignupsByDaySource` to the
+  repo mock (its absence 500'd every funnel test — a new `Promise.all` entry
+  with no mock throws), a dedicated test asserting the per-day stack always
+  equals the existing total-signups line, and `signupsByDaySource` added to the
+  two full-body `toEqual` assertions. 103/103 tests pass; `tsc --noEmit` and
+  `npm run build` (both consumer + admin bundles) clean.
+
 **Mobile post sheet: "Post a game" was invisible (white-on-white) (2026-08-03):**
 - Aidan reported that on his phone, going to create a game showed "Post a game"
   as white. Reproduced and confirmed against the real stylesheet: the label

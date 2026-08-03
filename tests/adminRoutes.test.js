@@ -23,6 +23,7 @@ vi.mock("../server/repo.js", () => ({
     { campaign: "", count: 3 },
   ]),
   getWaitlistSignupsByDay: vi.fn().mockResolvedValue([]),
+  getWaitlistSignupsByDaySource: vi.fn().mockResolvedValue([]),
   logAdminAction: vi.fn().mockResolvedValue(undefined),
   findUserById: vi.fn(),
   publicUser: vi.fn(),
@@ -101,9 +102,42 @@ describe("adminRoutes", () => {
         { source: "untagged", count: 65, percent: 65 }, // 65/100
       ],
       signupsByDay: [{ date: today, count: 4 }],
+      signupsByDaySource: { sources: [], days: [{ date: today, counts: {}, total: 0 }] },
       visitsByDay: [{ date: today, count: 8 }],
       posthogError: null,
     });
+  });
+
+  it("GET /api/admin/analytics/funnel splits signupsByDaySource per channel, zero-filled and matching the total line", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const repo = await import("../server/repo.js");
+    // Total line: 3 on yesterday, 5 today — must equal each day's stack sum.
+    repo.getWaitlistSignupsByDay.mockResolvedValueOnce([
+      { date: yesterday, count: 3 },
+      { date: today, count: 5 },
+    ]);
+    repo.getWaitlistSignupsByDaySource.mockResolvedValueOnce([
+      { date: yesterday, source: "reddit", count: 3 },
+      { date: today, source: "instagram", count: 4 },
+      { date: today, source: "reddit", count: 1 },
+    ]);
+
+    const res = await request(app).get("/api/admin/analytics/funnel");
+    expect(res.status).toBe(200);
+    // Legend ordered by all-time volume: reddit (4 total) before instagram (4
+    // total) is a tie broken by input order — the real assertion here is that
+    // both channels are present and every day is zero-filled per source.
+    expect(res.body.signupsByDaySource.sources.sort()).toEqual(["instagram", "reddit"]);
+    expect(res.body.signupsByDaySource.days).toEqual([
+      { date: yesterday, counts: { reddit: 3, instagram: 0 }, total: 3 },
+      { date: today, counts: { reddit: 1, instagram: 4 }, total: 5 },
+    ]);
+    // The invariant that matters: each day's stack sums to the total line.
+    for (const day of res.body.signupsByDaySource.days) {
+      const matchingTotal = res.body.signupsByDay.find((d) => d.date === day.date).count;
+      expect(day.total).toBe(matchingTotal);
+    }
   });
 
   it("GET /api/admin/analytics/funnel zero-fills both day series onto one shared axis (earliest data → today)", async () => {
@@ -166,6 +200,7 @@ describe("adminRoutes", () => {
       visitsByVideo: [],
       // PostHog failed, so pageviews-by-day is zero-filled on the signup axis.
       signupsByDay: [{ date: today, count: 9 }],
+      signupsByDaySource: { sources: [], days: [{ date: today, counts: {}, total: 0 }] },
       visitsByDay: [{ date: today, count: 0 }],
       posthogError: "PostHog query failed (401)",
     });

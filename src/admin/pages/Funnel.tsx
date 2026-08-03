@@ -12,6 +12,17 @@ interface WaitlistDayStat {
   count: number;
 }
 
+interface WaitlistDaySourceStat {
+  date: string; // "YYYY-MM-DD"
+  counts: Record<string, number>; // source -> signups that day (zero-filled)
+  total: number;
+}
+
+interface WaitlistDailyBySource {
+  sources: string[]; // ordered by all-time volume, for legend order only
+  days: WaitlistDaySourceStat[];
+}
+
 interface WaitlistFunnel {
   visits: number;
   started: number;
@@ -21,10 +32,9 @@ interface WaitlistFunnel {
   submittedRate: number;
   bySource: WaitlistSourceStat[];
   byCampaign: WaitlistSourceStat[];
-  visitsBySource: WaitlistSourceStat[];
   visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
-  visitsByDay: WaitlistDayStat[];
+  signupsByDaySource: WaitlistDailyBySource;
   posthogError: string | null;
 }
 
@@ -42,6 +52,42 @@ const SOURCE_LABELS: Record<string, string> = {
   test: "Test (excluded)",
 };
 
+// Colour per channel for the stacked daily chart. Keyed by SOURCE NAME, never
+// by position, so a channel keeps its hue when a quiet week reorders the legend
+// — otherwise "the orange one" would silently become a different platform.
+//
+// The eight chromatic hues are the validated categorical order (blue, orange,
+// aqua, yellow, magenta, green, violet, red): worst adjacent CVD ΔE 9.1 and
+// worst adjacent normal-vision ΔE 19.6 on a light surface, both above their
+// gates. Three of them sit under 3:1 against white, which is why every segment
+// carries a text label in the legend and an exact count on hover rather than
+// relying on colour alone.
+//
+// 'direct' is deliberately grey: it is the residual "we couldn't attribute
+// this" bucket, not a channel competing with the others, and grey is the one
+// thing that reads as absence rather than identity.
+const SOURCE_COLORS: Record<string, string> = {
+  instagram: "#2a78d6",
+  reddit: "#eb6834",
+  tiktok: "#1baf7a",
+  youtube: "#eda100",
+  telegram: "#e87ba4",
+  whatsapp: "#008300",
+  googleform: "#4a3aa7",
+  other: "#e34948",
+  direct: "#94a3b8",
+};
+const UNKNOWN_SOURCE_COLOR = "#cbd5e1";
+const colorForSource = (s: string) => SOURCE_COLORS[s] ?? UNKNOWN_SOURCE_COLOR;
+const labelForSource = (s: string) => SOURCE_LABELS[s] ?? s;
+
+// Horizontal room per day once every date is labelled. Dates are drawn rotated,
+// so this only has to clear the *width* of a tick, not the text length.
+const DAY_SLOT = 22;
+// Floor so a chart with only a handful of days still fills a full-width card
+// instead of huddling in the left third of it.
+const BASE_CHART_W = 660;
+
 // "Nice" integer axis ticks from 0 up to at least max (~`targetSteps` steps of
 // 1/2/5×10ⁿ). Guarantees whole-number increments so count axes never show
 // fractions. Pass a larger targetSteps for a denser, finer-grained axis.
@@ -54,23 +100,6 @@ function niceTicks(max: number, targetSteps = 4): number[] {
   for (let v = 0; v <= m; v += step) ticks.push(v);
   if (ticks[ticks.length - 1] < m) ticks.push(ticks[ticks.length - 1] + step);
   return ticks;
-}
-
-// Picks up to `maxLabels` point indices out of `n`, spread as evenly as
-// integer rounding allows (always including the first and last point). Using
-// index % step to pick labels forces the last point in regardless of where it
-// falls, so whenever (n - 1) isn't a multiple of the step the final gap ends
-// up bigger or smaller than the rest — e.g. daily data landing on 5-day gaps
-// except one 9-day jump at the end. Evenly interpolating the indices avoids
-// that for any n, so this holds for whatever date range future data has.
-function evenLabelIndices(n: number, maxLabels = 6): number[] {
-  if (n <= 0) return [];
-  if (n <= maxLabels) return Array.from({ length: n }, (_, i) => i);
-  const idx = new Set<number>();
-  for (let i = 0; i < maxLabels; i++) {
-    idx.add(Math.round((i * (n - 1)) / (maxLabels - 1)));
-  }
-  return Array.from(idx).sort((a, b) => a - b);
 }
 
 // One stage of a drop-off funnel: a label, its count/share of the top stage,
@@ -115,8 +144,44 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+// Every date down the x-axis, rotated so a month of them can't collide. Shared
+// by both time-series charts so their axes are drawn identically.
+function DateAxisLabels({
+  dates,
+  xOf,
+  y,
+}: {
+  dates: string[];
+  xOf: (i: number) => number;
+  y: number;
+}) {
+  return (
+    <>
+      {dates.map((date, i) => (
+        <text
+          key={date}
+          x={xOf(i)}
+          y={y}
+          fontSize="8.5"
+          textAnchor="end"
+          fill="#94a3b8"
+          transform={`rotate(-60 ${xOf(i)} ${y})`}
+        >
+          {date.slice(5)}
+        </text>
+      ))}
+    </>
+  );
+}
+
+// A chart wide enough to label every day will outgrow its card. Scroll it
+// inside its own box rather than letting it push the page sideways.
+function ScrollableChart({ children }: { children: ReactNode }) {
+  return <div className="-mx-1 overflow-x-auto px-1">{children}</div>;
+}
+
 // Dependency-free SVG line+area chart with a real y-axis: whole-number
-// gridlines + labels up the side, sparse date labels along the bottom.
+// gridlines + labels up the side, and every date along the bottom.
 function TimeSeriesLineChart({
   rows,
   emptyText,
@@ -133,12 +198,14 @@ function TimeSeriesLineChart({
 }) {
   if (rows.length === 0) return <p className="text-xs text-slate-400">{emptyText}</p>;
 
-  const w = 340;
-  const h = 300;
   const plotLeft = 30;
+  const w = Math.max(BASE_CHART_W, plotLeft + rows.length * DAY_SLOT + 12);
+  const h = 300;
   const plotRight = w - 8;
   const plotTop = 12;
-  const plotBottom = h - 22;
+  // Rotated date labels need far more room under the plot than the old sparse
+  // horizontal ones did.
+  const plotBottom = h - 54;
   const ticks = niceTicks(Math.max(...rows.map((r) => r.count)), tickSteps);
   const axisMax = ticks[ticks.length - 1];
   const stepX = rows.length > 1 ? (plotRight - plotLeft) / (rows.length - 1) : 0;
@@ -146,30 +213,141 @@ function TimeSeriesLineChart({
   const yOf = (v: number) => plotTop + (plotBottom - plotTop) * (1 - v / axisMax);
   const linePoints = rows.map((r, i) => `${xOf(i)},${yOf(r.count)}`).join(" ");
   const areaPoints = `${xOf(0)},${plotBottom} ${linePoints} ${xOf(rows.length - 1)},${plotBottom}`;
-  const labelIndices = evenLabelIndices(rows.length, 6);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label={ariaLabel}>
-      {ticks.map((t) => (
-        <g key={t}>
-          <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
-          <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
-        </g>
-      ))}
-      <polygon points={areaPoints} fill={color} fillOpacity="0.12" />
-      <polyline points={linePoints} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* One dot per day, with a native tooltip (hover/tap) showing the exact count. */}
-      {rows.map((r, i) => (
-        <circle key={r.date} cx={xOf(i)} cy={yOf(r.count)} r="2.5" fill={color}>
-          <title>{`${r.date}: ${r.count}`}</title>
-        </circle>
-      ))}
-      {labelIndices.map((i) => (
-        <text key={rows[i].date} x={xOf(i)} y={h - 6} fontSize="9" textAnchor="middle" fill="#94a3b8">
-          {rows[i].date.slice(5)}
-        </text>
-      ))}
-    </svg>
+    <ScrollableChart>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
+            <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
+          </g>
+        ))}
+        <polygon points={areaPoints} fill={color} fillOpacity="0.12" />
+        <polyline points={linePoints} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* One dot per day, with a native tooltip (hover/tap) showing the exact count. */}
+        {rows.map((r, i) => (
+          <circle key={r.date} cx={xOf(i)} cy={yOf(r.count)} r="2.5" fill={color}>
+            <title>{`${r.date}: ${r.count}`}</title>
+          </circle>
+        ))}
+        <DateAxisLabels dates={rows.map((r) => r.date)} xOf={xOf} y={plotBottom + 12} />
+      </svg>
+    </ScrollableChart>
+  );
+}
+
+// Stacked daily bars: one bar per day, one segment per channel, so you can read
+// both "how many signed up that day" and "where they came from" at once. Bars
+// (not lines) because most days are small whole numbers and several channels
+// sit at zero — overlapping lines at y=0 would be unreadable.
+function StackedSourceTimeline({
+  data,
+  emptyText,
+  ariaLabel,
+}: {
+  data: WaitlistDailyBySource;
+  emptyText: string;
+  ariaLabel: string;
+}) {
+  const { sources, days } = data;
+  if (days.length === 0 || sources.length === 0)
+    return <p className="text-xs text-slate-400">{emptyText}</p>;
+
+  const plotLeft = 30;
+  const w = Math.max(BASE_CHART_W, plotLeft + days.length * DAY_SLOT + 12);
+  const h = 320;
+  const plotRight = w - 8;
+  const plotTop = 12;
+  const plotBottom = h - 54;
+  const ticks = niceTicks(Math.max(...days.map((d) => d.total)), 5);
+  const axisMax = ticks[ticks.length - 1];
+  const slot = (plotRight - plotLeft) / days.length;
+  const barW = Math.max(3, Math.min(16, slot - 4));
+  const centerOf = (i: number) => plotLeft + slot * (i + 0.5);
+  const yOf = (v: number) => plotTop + (plotBottom - plotTop) * (1 - v / axisMax);
+
+  return (
+    <div className="space-y-2">
+      {/* Legend — identity is never colour-alone. */}
+      <ul className="flex flex-wrap gap-x-4 gap-y-1">
+        {sources.map((s) => (
+          <li key={s} className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="h-2.5 w-2.5 shrink-0 rounded-sm"
+              style={{ backgroundColor: colorForSource(s) }}
+            />
+            <span className="text-[11px] text-slate-600">{labelForSource(s)}</span>
+          </li>
+        ))}
+      </ul>
+
+      <ScrollableChart>
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel}>
+          {ticks.map((t) => (
+            <g key={t}>
+              <line x1={plotLeft} y1={yOf(t)} x2={plotRight} y2={yOf(t)} stroke="#EEF2F6" strokeWidth="1" />
+              <text x={plotLeft - 6} y={yOf(t) + 3} fontSize="9" textAnchor="end" fill="#94a3b8">{t}</text>
+            </g>
+          ))}
+
+          {days.map((d, i) => {
+            // Stack upward from the baseline in the legend's order, so the same
+            // channel sits in the same band on every bar.
+            let cursor = 0;
+            return (
+              <g key={d.date}>
+                {sources.map((s) => {
+                  const v = d.counts[s] || 0;
+                  if (v === 0) return null;
+                  const yTop = yOf(cursor + v);
+                  const yBase = yOf(cursor);
+                  cursor += v;
+                  // 1px surface gap between segments so adjacent hues never
+                  // bleed into one another.
+                  const segH = Math.max(1, yBase - yTop - 1);
+                  return (
+                    <rect
+                      key={s}
+                      x={centerOf(i) - barW / 2}
+                      y={yTop}
+                      width={barW}
+                      height={segH}
+                      fill={colorForSource(s)}
+                    >
+                      <title>{`${d.date} · ${labelForSource(s)}: ${v}`}</title>
+                    </rect>
+                  );
+                })}
+                {/* Whole-bar hit area: gives zero days a tooltip too, and makes
+                    the day total readable without hovering each segment. */}
+                <rect
+                  x={centerOf(i) - slot / 2}
+                  y={plotTop}
+                  width={slot}
+                  height={plotBottom - plotTop}
+                  fill="transparent"
+                >
+                  <title>
+                    {`${d.date} — ${d.total} signup${d.total === 1 ? "" : "s"}` +
+                      (d.total > 0
+                        ? `\n${sources
+                            .filter((s) => (d.counts[s] || 0) > 0)
+                            .map((s) => `${labelForSource(s)}: ${d.counts[s]}`)
+                            .join("\n")}`
+                        : "")}
+                  </title>
+                </rect>
+              </g>
+            );
+          })}
+
+          <line x1={plotLeft} y1={plotBottom} x2={plotRight} y2={plotBottom} stroke="#E2E8F0" strokeWidth="1" />
+          <DateAxisLabels dates={days.map((d) => d.date)} xOf={centerOf} y={plotBottom + 12} />
+        </svg>
+      </ScrollableChart>
+    </div>
   );
 }
 
@@ -320,41 +498,39 @@ export default function Funnel() {
       )}
       {data.posthogError && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          PostHog data unavailable ({data.posthogError}) — showing your database's signup numbers
-          only. Pageviews, conversion rate's visit count, pageviews over time, and pageviews by
-          source won't be accurate until this is fixed.
+          PostHog data unavailable ({data.posthogError}) — every signup number here still comes
+          from your own database and is accurate. The conversion rate's visit count, the drop-off
+          funnel, and pageviews by video won't be right until this is fixed.
         </p>
       )}
 
-      {/* 1, 2 & 3. Pageviews / signups over time plus the conversion-rate
-          summary, in one row on desktop. The two charts are scaled down from
-          filling the row edge-to-edge (was 7fr/7fr/6fr — 35/35/30%), and the
-          conversion card is a bit wider still (6fr/6fr/7fr — 31.6/31.6/36.8%)
-          now that it also holds the drop-off funnel below. Pageviews are
-          scoped to "since launch" (server/posthog.js LAUNCH_DATE) — the
-          pre-launch dev/QA traffic isn't meaningful to show next to real
-          traffic. Signups stay all-time since those are real people already
-          on the list. */}
-      <div className="grid gap-4 md:grid-cols-[6fr_6fr_7fr]">
-        <Card title="Pageviews over time (since launch)">
-          <TimeSeriesLineChart
-            rows={data.visitsByDay}
-            emptyText="No visits recorded yet."
-            color="#3B82F6"
-            ariaLabel={`Page views per day, ${data.visitsByDay.length} days`}
-            tickSteps={8}
-          />
-        </Card>
+      {/* 1. Signups over time — full width so every single date fits along the
+          x-axis. All-time (not "since launch") because these are real people
+          already on the list. */}
+      <Card title="Signups over time (all time)">
+        <TimeSeriesLineChart
+          rows={data.signupsByDay}
+          emptyText="No signups yet."
+          color="#10B981"
+          ariaLabel={`Signups per day, ${data.signupsByDay.length} days`}
+        />
+      </Card>
 
-        <Card title="Signups over time (all time)">
-          <TimeSeriesLineChart
-            rows={data.signupsByDay}
-            emptyText="No signups yet."
-            color="#10B981"
-            ariaLabel={`Signups per day, ${data.signupsByDay.length} days`}
-          />
-        </Card>
+      {/* 2. The same daily signups, split by the channel they came from, on the
+          same date axis as the total line above — so a spike can be read back
+          to the channel that caused it. Sourced from our own waitlist table
+          (exact, immune to ad blockers), not PostHog. */}
+      <Card title="Signups per day by source (all time)">
+        <StackedSourceTimeline
+          data={data.signupsByDaySource}
+          emptyText="No signups yet."
+          ariaLabel={`Signups per day broken down by source, ${data.signupsByDaySource.days.length} days`}
+        />
+      </Card>
 
+      {/* 3 & 4. Conversion rate in a box of its own, to the left of signups by
+          source. */}
+      <div className="grid gap-4 md:grid-cols-2">
         <Card title="Conversion rate">
           <div className="flex flex-wrap gap-2">
             {conversionStats.map((s) => (
@@ -398,31 +574,25 @@ export default function Funnel() {
             </div>
           )}
         </Card>
+
+        {/* Signups by source — our own DB (exact, immune to ad blockers). */}
+        <Card title="Signups by source (all time)">
+          <SourceBarChart rows={data.bySource} emptyText="No signups yet." />
+        </Card>
       </div>
 
-      {/* 4. Signups by source — our own DB (exact, immune to ad blockers). */}
-      <Card title="Signups by source (all time)">
-        <SourceBarChart rows={data.bySource} emptyText="No signups yet." />
-      </Card>
-
-      {/* 5. Pageviews by source — PostHog, grouped by utm_source. Scoped to a
-          later cutoff than the rest of the launch metrics (see
-          server/posthog.js SINCE_UTM_FIX) since a capture bug meant pre-fix
-          pageviews carry no reliable source tag at all. */}
-      <Card title="Pageviews by source (since tracking fix)">
-        <SourceBarChart rows={data.visitsBySource} emptyText="No visits recorded yet." />
-      </Card>
-
-      {/* 6. Signups by video — our own DB (utm_campaign, captured on submit
+      {/* 5. Signups by video — our own DB (utm_campaign, captured on submit
           same as source), exact and immune to ad blockers. */}
       <Card title="Signups by video (all time)">
         <SourceBarChart rows={data.byCampaign} emptyText="No signups yet." />
       </Card>
 
-      {/* 7. Pageviews by video — PostHog, grouped by the `video` super property
+      {/* 6. Pageviews by video — PostHog, grouped by the `video` super property
           (registered from utm_campaign, src/lib/posthog.ts). The only source
           for video-level visit counts, since the waitlist page never hits our
-          own API. Same SINCE_UTM_FIX cutoff as pageviews by source. */}
+          own API. Scoped to a later cutoff than the other launch metrics (see
+          server/posthog.js SINCE_UTM_FIX): a capture bug meant pre-fix
+          pageviews carry no reliable source tag at all. */}
       <Card title="Pageviews by video (since tracking fix)">
         <SourceBarChart rows={data.visitsByVideo} emptyText="No visits recorded yet." />
       </Card>

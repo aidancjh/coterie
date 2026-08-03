@@ -213,9 +213,43 @@ function alignDailySeries(rawSignups, rawVisits) {
   const signupMap = new Map(rawSignups.map((r) => [r.date, r.count]));
   const visitMap = new Map(rawVisits.map((r) => [r.date, r.count]));
   return {
+    dates,
     signupsByDay: dates.map((date) => ({ date, count: signupMap.get(date) || 0 })),
     visitsByDay: dates.map((date) => ({ date, count: visitMap.get(date) || 0 })),
   };
+}
+
+// Reshape raw [{ date, source, count }] rows into a stacked-chart-ready series,
+// zero-filled onto the SAME `dates` axis the total signups line uses, so the
+// stack for a day always adds up to the point plotted above it.
+//
+// `sources` is ordered by all-time volume (biggest channel first) purely so the
+// legend reads best-to-worst. It deliberately does NOT drive colour: the chart
+// keys colour off the source name, so a channel keeps its hue even when a
+// quieter week reorders this list.
+function buildDailyBySource(dates, rawRows) {
+  const totals = new Map();
+  for (const r of rawRows) totals.set(r.source, (totals.get(r.source) || 0) + r.count);
+  const sources = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([source]) => source);
+
+  const byDate = new Map();
+  for (const r of rawRows) {
+    if (!byDate.has(r.date)) byDate.set(r.date, {});
+    byDate.get(r.date)[r.source] = r.count;
+  }
+
+  const days = dates.map((date) => {
+    const raw = byDate.get(date) || {};
+    const counts = {};
+    let total = 0;
+    for (const s of sources) {
+      counts[s] = raw[s] || 0;
+      total += counts[s];
+    }
+    return { date, counts, total };
+  });
+
+  return { sources, days };
 }
 
 // Attach a "% of real signups/visits" to each {source, count} row. The private
@@ -246,12 +280,14 @@ function withRealShare(rows) {
 router.get(
   "/analytics/funnel",
   h(async (_req, res) => {
-    const [submittedDb, rawBySource, rawByCampaign, rawSignupsByDay] = await Promise.all([
-      repo.getWaitlistCount(),
-      repo.getWaitlistCountsBySource(),
-      repo.getWaitlistCountsByCampaign(),
-      repo.getWaitlistSignupsByDay(),
-    ]);
+    const [submittedDb, rawBySource, rawByCampaign, rawSignupsByDay, rawSignupsByDaySource] =
+      await Promise.all([
+        repo.getWaitlistCount(),
+        repo.getWaitlistCountsBySource(),
+        repo.getWaitlistCountsByCampaign(),
+        repo.getWaitlistSignupsByDay(),
+        repo.getWaitlistSignupsByDaySource(),
+      ]);
 
     let visits = 0;
     let started = 0;
@@ -288,8 +324,9 @@ router.get(
     const visitsByVideo = withRealShare(
       rawVisitsByVideo.map((r) => ({ source: r.video, count: r.visits }))
     );
-    // Both time-series charts share one axis: earliest data day → today.
-    const { signupsByDay, visitsByDay } = alignDailySeries(rawSignupsByDay, rawVisitsByDay);
+    // Every time series shares one axis: earliest data day → today.
+    const { dates, signupsByDay, visitsByDay } = alignDailySeries(rawSignupsByDay, rawVisitsByDay);
+    const signupsByDaySource = buildDailyBySource(dates, rawSignupsByDaySource);
     res.json({
       visits,
       started,
@@ -302,6 +339,7 @@ router.get(
       visitsBySource,
       visitsByVideo,
       signupsByDay,
+      signupsByDaySource,
       visitsByDay,
       posthogError,
     });

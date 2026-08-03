@@ -21,6 +21,17 @@ interface WaitlistDayStat {
   count: number;
 }
 
+interface WaitlistDaySourceStat {
+  date: string; // "YYYY-MM-DD"
+  counts: Record<string, number>; // source -> signups that day (zero-filled)
+  total: number;
+}
+
+interface WaitlistDailyBySource {
+  sources: string[]; // ordered by all-time volume, for legend order only
+  days: WaitlistDaySourceStat[];
+}
+
 interface WaitlistFunnel {
   visits: number;
   started: number;
@@ -30,9 +41,14 @@ interface WaitlistFunnel {
   submittedRate: number;
   bySource: WaitlistSourceStat[];
   byCampaign: WaitlistSourceStat[];
-  visitsBySource: WaitlistSourceStat[];
   visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
+  signupsByDaySource: WaitlistDailyBySource;
+  // Still returned by /analytics/funnel, but no longer charted on the Funnel
+  // tab (the pageviews-over-time and pageviews-by-source cards were removed
+  // 2026-08-03). Kept on the response type because the endpoint really does
+  // send them.
+  visitsBySource: WaitlistSourceStat[];
   visitsByDay: WaitlistDayStat[];
   posthogError: string | null;
 }

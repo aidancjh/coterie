@@ -1825,6 +1825,29 @@ export async function getWaitlistSignupsByDay() {
   return rows;
 }
 
+/**
+ * Daily signup counts split by attribution source, oldest first:
+ * [{ date, source, count }] (UTC days).
+ *
+ * Excludes the private 'test' source for the same reason — and in the same way
+ * — as getWaitlistSignupsByDay() above: the two feed charts that share one date
+ * axis, so if one counted our own test signups and the other didn't, the
+ * stacked per-source totals would silently disagree with the total line sitting
+ * directly above them.
+ */
+export async function getWaitlistSignupsByDaySource() {
+  const { rows } = await query(`
+    SELECT to_char(date_trunc('day', created_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS date,
+           source,
+           COUNT(*)::int AS count
+    FROM waitlist
+    WHERE source != 'test'
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  `);
+  return rows;
+}
+
 // --------------------------------------------------------------------------
 
 export async function deleteComment(gameId, commentId, userId) {
