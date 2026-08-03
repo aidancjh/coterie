@@ -126,6 +126,37 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Mobile post sheet: "Post a game" was invisible (white-on-white) (2026-08-03):**
+- Aidan reported that on his phone, going to create a game showed "Post a game"
+  as white. Reproduced and confirmed against the real stylesheet: the label
+  computed to `rgb(255,255,255)` on a `rgb(241,245,249)` surface — a ~1.07:1
+  contrast ratio, i.e. invisible. The sibling description line and the sheet's
+  own heading were correctly dark, which is why only that one label vanished.
+- Root cause was in `src/index.css`, not in the component. The light theme
+  remaps `.text-white` to dark ink, then re-whitens it on coloured surfaces via
+  `[class*="bg-brand"] .text-white`. That is a bare substring match, and
+  Tailwind writes *variants* into the same class attribute — so it also matched
+  `hover:bg-brand/5` on the post-sheet option button. Any element merely
+  *capable* of a brand background forced its text white, even while actually
+  sitting on the light `bg-slate-800` surface.
+- ✅ Fixed by anchoring every `bg-*` match to a class boundary — `[class^="bg-x"]`
+  or `[class*=" bg-x"]`, wrapped in `:is()` so specificity is unchanged (0,2,0).
+  A variant like `hover:bg-brand/5` is preceded by `:`, so it no longer matches;
+  the real hover state is still handled by the existing
+  `[class*="hover:bg-brand"]:hover` rule.
+- Verified: label now `rgb(15,23,42)` on the light surface, and six genuinely
+  coloured surfaces (brand banner, active desktop nav pill, tab pill, the raised
+  "+" button, an emerald surface, the black overlay) all still render white text.
+  Production build re-run; the `:is()` selectors survive minification.
+- **Mobile-only bug**: the post sheet is opened from the `lg:hidden` bottom tab
+  bar, so a desktop browser cannot reach it. The `bg-brand`-backed "Post a game"
+  buttons on `BrowseGames` were never affected. This prompted the new CLAUDE.md
+  rule "Mobile and desktop are one change, never two" — Aidan's standing
+  instruction that every UI change is applied and checked on both layouts, with
+  the phone view shown to him (or confirmed in words when no screenshot is
+  possible).
+
+
 **Cost per person + end time made compulsory on the host form (2026-07-31):**
 - Aidan: both were labelled "(optional)" in `GameForm.tsx` and had no
   validation — a host could post a game with neither set.

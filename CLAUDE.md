@@ -153,6 +153,35 @@ excluded, so a clean run means clean. Colours are resolved by painting them to a
 canvas — Tailwind 4 emits `oklch()`, which can't be compared component-wise
 against `rgb()`.
 
+## ⚠️ Mobile and desktop are one change, never two
+
+**Every UI change must be made and checked on BOTH the phone and the laptop
+layout.** They must match. This is not "verify if convenient" — an unchecked
+breakpoint is an unfinished change.
+
+The app is one responsive tree with real per-breakpoint divergence, so it is easy
+to fix one and silently break, or simply not apply, the other:
+
+- The bottom tab bar and its raised "+" (which opens the post sheet) are
+  `lg:hidden` — **phone only**.
+- The horizontal nav in the header is `hidden … lg:flex` — **desktop only**.
+- `<main>`'s inner wrapper switches width per route at `lg:` (`lg:max-w-5xl` on
+  Browse, `lg:max-w-2xl` elsewhere), and the shell drops its card framing at
+  `lg:` (`lg:max-w-none lg:shadow-none`).
+
+Because of that split, a defect can be reachable on **only one** of them. The
+2026-08-03 white-on-white "Post a game" bug lived in the post sheet, which a
+desktop browser cannot even open.
+
+**Required for every layout/UI change:**
+
+1. Apply the change to both layouts, and confirm they agree.
+2. Re-check at ~375, 768 and 1440 wide (see the layout-audit section above).
+3. **Show Aidan the phone result** — a screenshot at 375 wide — or, if a
+   screenshot can't be produced (e.g. the Browser pane isn't displayed, so the
+   page isn't compositing frames), **say so and confirm the intended result with
+   him in words instead**. Never quietly skip this step.
+
 ## Brand voice — Convenient · Reliable · Inclusive
 
 Aidan's tone of voice is **strictly these three adjectives** (set 2026-07-30, replacing

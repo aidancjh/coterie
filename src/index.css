@@ -44,20 +44,42 @@ body,
 .text-white { color: #0f172a; }
 .hover\:text-white:hover { color: #0f172a; }
 
-/* ...except on colored surfaces, where white must stay white. */
-[class*="bg-brand"] .text-white, [class*="bg-brand"].text-white,
-[class*="bg-rose"] .text-white, [class*="bg-rose"].text-white,
-[class*="bg-red"] .text-white, [class*="bg-red"].text-white,
-[class*="bg-emerald"] .text-white, [class*="bg-emerald"].text-white,
-[class*="bg-green"] .text-white, [class*="bg-green"].text-white,
-[class*="bg-amber"] .text-white, [class*="bg-amber"].text-white,
-[class*="bg-black"] .text-white, [class*="bg-black"].text-white,
-[class*="bg-gradient"] .text-white, [class*="bg-gradient"].text-white {
+/* ...except on colored surfaces, where white must stay white.
+
+   Each bg-* match is anchored to a class boundary — start of the attribute, or
+   preceded by a space. Tailwind writes variants into that same attribute, so a
+   bare [class*="bg-brand"] also matched `hover:bg-brand/5`: a background that
+   is not painted until you hover. Any element merely *capable* of a brand
+   background therefore forced its text white, even while sitting on a light
+   surface. That is what made "Post a game" white-on-white in the mobile post
+   sheet (PostSheet in components/Layout.tsx, whose option button is
+   `bg-slate-800 ... hover:bg-brand/5`). The genuine hover state is handled by
+   the [class*="hover:bg-brand"]:hover rule below.
+
+   Note: these still match low-opacity tints (bg-brand/10 and friends), which
+   render as pale washes needing dark ink. No such surface currently wraps
+   .text-white — they use text-brand — so it is latent, not a live bug. */
+:is([class^="bg-brand"], [class*=" bg-brand"]) .text-white,
+:is([class^="bg-brand"], [class*=" bg-brand"]).text-white,
+:is([class^="bg-rose"], [class*=" bg-rose"]) .text-white,
+:is([class^="bg-rose"], [class*=" bg-rose"]).text-white,
+:is([class^="bg-red"], [class*=" bg-red"]) .text-white,
+:is([class^="bg-red"], [class*=" bg-red"]).text-white,
+:is([class^="bg-emerald"], [class*=" bg-emerald"]) .text-white,
+:is([class^="bg-emerald"], [class*=" bg-emerald"]).text-white,
+:is([class^="bg-green"], [class*=" bg-green"]) .text-white,
+:is([class^="bg-green"], [class*=" bg-green"]).text-white,
+:is([class^="bg-amber"], [class*=" bg-amber"]) .text-white,
+:is([class^="bg-amber"], [class*=" bg-amber"]).text-white,
+:is([class^="bg-black"], [class*=" bg-black"]) .text-white,
+:is([class^="bg-black"], [class*=" bg-black"]).text-white,
+:is([class^="bg-gradient"], [class*=" bg-gradient"]) .text-white,
+:is([class^="bg-gradient"], [class*=" bg-gradient"]).text-white {
   color: #ffffff;
 }
-[class*="bg-brand"] .hover\:text-white:hover,
-[class*="bg-black"] .hover\:text-white:hover,
-[class*="bg-gradient"] .hover\:text-white:hover {
+:is([class^="bg-brand"], [class*=" bg-brand"]) .hover\:text-white:hover,
+:is([class^="bg-black"], [class*=" bg-black"]) .hover\:text-white:hover,
+:is([class^="bg-gradient"], [class*=" bg-gradient"]) .hover\:text-white:hover {
   color: #ffffff;
 }
 [class*="hover:bg-brand"]:hover.text-white,
