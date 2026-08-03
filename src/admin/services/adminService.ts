@@ -41,13 +41,13 @@ interface WaitlistFunnel {
   submittedRate: number;
   bySource: WaitlistSourceStat[];
   byCampaign: WaitlistSourceStat[];
-  visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
   signupsByDaySource: WaitlistDailyBySource;
   // Still returned by /analytics/funnel, but no longer charted on the Funnel
-  // tab (the pageviews-over-time and pageviews-by-source cards were removed
-  // 2026-08-03). Kept on the response type because the endpoint really does
-  // send them.
+  // tab — "Pageviews over time" and "Pageviews by source" were removed
+  // 2026-08-03, and "Pageviews by video" followed the same day. Kept on the
+  // response type because the endpoint really does send them.
+  visitsByVideo: WaitlistSourceStat[];
   visitsBySource: WaitlistSourceStat[];
   visitsByDay: WaitlistDayStat[];
   posthogError: string | null;

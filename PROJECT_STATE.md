@@ -126,6 +126,43 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Funnel tab: remove Pageviews by video, default to last 14 days + range toggle (2026-08-03):**
+- Follow-up to the same-day Funnel reshuffle below. Aidan wanted "Pageviews by
+  video" gone, and "Signups over time" / "Signups by source" trimmed to a
+  default 14-day window (all 40+ days at once was the same clutter problem the
+  every-date axis change had just fixed) with a way to see full history.
+- ✅ Removed the "Pageviews by video" card. `visitsByVideo` is still returned by
+  `/analytics/funnel` and still typed (same treatment as `visitsBySource` /
+  `visitsByDay` from the earlier change) — not worth touching the PostHog query
+  or the response shape just to drop one now-unused field.
+- ✅ Added a two-segment pill toggle (`RangeToggle`, "Last 14 days" / "All time
+  (Nd)") — the standard shape real dashboards (Stripe, Vercel Analytics,
+  Plausible) use for a binary date-range switch. Governs three cards: Signups
+  over time, Signups per day by source, and Signups by source. Hidden entirely
+  once there's ≤14 days of history to expand into (`canToggleRange`). The other
+  two cards (Conversion rate, Signups by video) are explicitly NOT
+  range-controlled and keep fixed "(all time)" titles, so it's visually obvious
+  which cards the toggle does and doesn't touch.
+- ✅ All windowing is client-side, computed from data the API already returns —
+  no new endpoint. The two day-series cards just `.slice(-14)`. "Signups by
+  source" is the more interesting case: it used to only ever show an all-time
+  total, so a new `sumBySourceOverWindow()` re-aggregates per-source counts
+  from the (possibly sliced) `signupsByDaySource` and re-sorts by count —
+  verified this actually re-ranks (not just re-labels) against seeded
+  production-shaped data: "Direct/untagged" drops from 3rd all-time to 5th in a
+  14-day window once Telegram and TikTok overtake it. Pure-function math
+  verified separately (sums to the window's grand total, sorts descending,
+  `percent: null` — not `NaN`/`Infinity` — when a window has zero signups).
+- ✅ Verified default state renders exactly 14 dates on both time-series charts
+  with zero overlapping labels and fits the base chart width with no scroll;
+  "All time" expands to all 40 with zero overlaps and the wider SVG scrolls
+  inside its own box, never the page. Same static-harness approach as the
+  earlier change (still no `.env.admin` locally to run the real admin app),
+  this time interactive so the toggle could actually be clicked and both
+  states inspected via DOM queries (screenshots weren't available this
+  session — the Browser pane wasn't displayed/compositing). `tsc --noEmit`,
+  103/103 tests, and both production bundles all clean.
+
 **Funnel tab: every date on the axis, per-source daily timeline, layout reshuffle (2026-08-03):**
 - Aidan wanted every single date labelled on the Funnel charts (not the old
   6-label sparse axis), the pageviews-over-time and pageviews-by-source cards

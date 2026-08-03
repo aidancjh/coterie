@@ -32,9 +32,13 @@ interface WaitlistFunnel {
   submittedRate: number;
   bySource: WaitlistSourceStat[];
   byCampaign: WaitlistSourceStat[];
-  visitsByVideo: WaitlistSourceStat[];
   signupsByDay: WaitlistDayStat[];
   signupsByDaySource: WaitlistDailyBySource;
+  // Returned by /analytics/funnel but not rendered on this tab — "Pageviews by
+  // video" was removed 2026-08-03 alongside "Pageviews over time" and
+  // "Pageviews by source". Kept on the type because the endpoint really does
+  // send it (see the matching comment in adminService.ts).
+  visitsByVideo: WaitlistSourceStat[];
   posthogError: string | null;
 }
 
@@ -402,11 +406,86 @@ function SourceBarChart({ rows, emptyText }: { rows: WaitlistSourceStat[]; empty
   );
 }
 
+// How many trailing days the charts show by default — expanded via the range
+// toggle below. 14 days is the common default across analytics dashboards
+// (Stripe, Vercel Analytics, Plausible all default a chart to a 2-4 week
+// window before you have to ask for more).
+const WINDOW_DAYS = 14;
+
+// Recomputes {source, count, percent} totals from a (possibly windowed) slice
+// of the per-day-by-source series, so "Signups by source" can show "top
+// channels in the last 14 days" and not only ever an all-time total. Mirrors
+// the backend's withRealShare rounding (one decimal place). There's no 'test'
+// row to exclude here — the API already filters it out before this data ever
+// reaches the client, same as the rest of signupsByDaySource.
+function sumBySourceOverWindow(windowed: WaitlistDailyBySource): WaitlistSourceStat[] {
+  const totals = new Map<string, number>();
+  for (const day of windowed.days) {
+    for (const source of windowed.sources) {
+      totals.set(source, (totals.get(source) || 0) + (day.counts[source] || 0));
+    }
+  }
+  const grandTotal = [...totals.values()].reduce((sum, n) => sum + n, 0);
+  return [...totals.entries()]
+    .map(([source, count]) => ({
+      source,
+      count,
+      percent: grandTotal === 0 ? null : Math.round((count / grandTotal) * 1000) / 10,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// Segmented pill toggle — the standard shape for a chart date-range switch
+// (Stripe, Vercel Analytics, Plausible all use this exact two/three-option
+// pill rather than a dropdown when there are only a couple of choices).
+// Governs the three range-aware cards below; unaffected cards (Conversion
+// rate, Signups by video) keep their own fixed "(all time)" title so it's
+// clear at a glance which cards this does and doesn't touch.
+function RangeToggle({
+  showAll,
+  onToggle,
+  totalDays,
+}: {
+  showAll: boolean;
+  onToggle: () => void;
+  totalDays: number;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Date range for the charts below"
+      className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-medium"
+    >
+      <button
+        role="tab"
+        aria-selected={!showAll}
+        onClick={() => showAll && onToggle()}
+        className={`rounded-md px-3 py-1.5 transition ${
+          !showAll ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+        }`}
+      >
+        Last {WINDOW_DAYS} days
+      </button>
+      <button
+        role="tab"
+        aria-selected={showAll}
+        onClick={() => !showAll && onToggle()}
+        className={`rounded-md px-3 py-1.5 transition ${
+          showAll ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+        }`}
+      >
+        All time ({totalDays}d)
+      </button>
+    </div>
+  );
+}
+
 export default function Funnel() {
   const [data, setData] = useState<WaitlistFunnel | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [showAllTime, setShowAllTime] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -452,6 +531,19 @@ export default function Funnel() {
     { label: "Signups (all time)", value: data.submittedDb.toLocaleString() },
     { label: "Conversion", value: `${data.submittedRate}%` },
   ];
+
+  // Windowing for the three range-aware cards (signups over time, signups per
+  // day by source, signups by source). The toggle only appears once there's
+  // more history than the default window to expand into.
+  const totalDays = data.signupsByDay.length;
+  const canToggleRange = totalDays > WINDOW_DAYS;
+  const rangeLabel = showAllTime ? "all time" : `last ${WINDOW_DAYS} days`;
+  const windowedSignupsByDay = showAllTime ? data.signupsByDay : data.signupsByDay.slice(-WINDOW_DAYS);
+  const windowedSignupsByDaySource: WaitlistDailyBySource = {
+    sources: data.signupsByDaySource.sources,
+    days: showAllTime ? data.signupsByDaySource.days : data.signupsByDaySource.days.slice(-WINDOW_DAYS),
+  };
+  const windowedBySource = showAllTime ? data.bySource : sumBySourceOverWindow(windowedSignupsByDaySource);
 
   // Drop-off funnel: visits → started the waitlist form → actually submitted.
   // `started`/`startedRate` already come back from the API but were never
@@ -499,37 +591,49 @@ export default function Funnel() {
       {data.posthogError && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
           PostHog data unavailable ({data.posthogError}) — every signup number here still comes
-          from your own database and is accurate. The conversion rate's visit count, the drop-off
-          funnel, and pageviews by video won't be right until this is fixed.
+          from your own database and is accurate. Only the conversion rate's visit count and the
+          drop-off funnel won't be right until this is fixed.
         </p>
       )}
 
+      {/* Shared range control for the three cards below — defaults to the
+          trailing 14 days, expandable to full history. Hidden once there's no
+          more history to expand into. */}
+      {canToggleRange && (
+        <div className="flex justify-end">
+          <RangeToggle showAll={showAllTime} onToggle={() => setShowAllTime((v) => !v)} totalDays={totalDays} />
+        </div>
+      )}
+
       {/* 1. Signups over time — full width so every single date fits along the
-          x-axis. All-time (not "since launch") because these are real people
-          already on the list. */}
-      <Card title="Signups over time (all time)">
+          x-axis. All-time totals (not "since launch") because these are real
+          people already on the list; the range toggle above controls the
+          window shown. */}
+      <Card title={`Signups over time (${rangeLabel})`}>
         <TimeSeriesLineChart
-          rows={data.signupsByDay}
+          rows={windowedSignupsByDay}
           emptyText="No signups yet."
           color="#10B981"
-          ariaLabel={`Signups per day, ${data.signupsByDay.length} days`}
+          ariaLabel={`Signups per day, ${windowedSignupsByDay.length} days`}
         />
       </Card>
 
       {/* 2. The same daily signups, split by the channel they came from, on the
-          same date axis as the total line above — so a spike can be read back
-          to the channel that caused it. Sourced from our own waitlist table
-          (exact, immune to ad blockers), not PostHog. */}
-      <Card title="Signups per day by source (all time)">
+          same date axis and same range as the total line above — so a spike
+          can be read back to the channel that caused it. Sourced from our own
+          waitlist table (exact, immune to ad blockers), not PostHog. */}
+      <Card title={`Signups per day by source (${rangeLabel})`}>
         <StackedSourceTimeline
-          data={data.signupsByDaySource}
+          data={windowedSignupsByDaySource}
           emptyText="No signups yet."
-          ariaLabel={`Signups per day broken down by source, ${data.signupsByDaySource.days.length} days`}
+          ariaLabel={`Signups per day broken down by source, ${windowedSignupsByDaySource.days.length} days`}
         />
       </Card>
 
       {/* 3 & 4. Conversion rate in a box of its own, to the left of signups by
-          source. */}
+          source. Conversion rate is NOT range-controlled (it's an all-time
+          summary), which is why its title stays fixed while the card beside
+          it changes with the toggle. */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Conversion rate">
           <div className="flex flex-wrap gap-2">
@@ -575,26 +679,22 @@ export default function Funnel() {
           )}
         </Card>
 
-        {/* Signups by source — our own DB (exact, immune to ad blockers). */}
-        <Card title="Signups by source (all time)">
-          <SourceBarChart rows={data.bySource} emptyText="No signups yet." />
+        {/* Signups by source — our own DB (exact, immune to ad blockers).
+            Range-controlled by the same toggle as the two cards above: in the
+            14-day view this re-ranks to the top channels for that window,
+            recomputed client-side from signupsByDaySource (sumBySourceOverWindow)
+            rather than a separate API call. */}
+        <Card title={`Signups by source (${rangeLabel})`}>
+          <SourceBarChart rows={windowedBySource} emptyText="No signups yet." />
         </Card>
       </div>
 
       {/* 5. Signups by video — our own DB (utm_campaign, captured on submit
-          same as source), exact and immune to ad blockers. */}
+          same as source), exact and immune to ad blockers. Not range-controlled
+          (all time) — the toggle above only governs the three cards it sits
+          beside. */}
       <Card title="Signups by video (all time)">
         <SourceBarChart rows={data.byCampaign} emptyText="No signups yet." />
-      </Card>
-
-      {/* 6. Pageviews by video — PostHog, grouped by the `video` super property
-          (registered from utm_campaign, src/lib/posthog.ts). The only source
-          for video-level visit counts, since the waitlist page never hits our
-          own API. Scoped to a later cutoff than the other launch metrics (see
-          server/posthog.js SINCE_UTM_FIX): a capture bug meant pre-fix
-          pageviews carry no reliable source tag at all. */}
-      <Card title="Pageviews by video (since tracking fix)">
-        <SourceBarChart rows={data.visitsByVideo} emptyText="No visits recorded yet." />
       </Card>
     </div>
   );
