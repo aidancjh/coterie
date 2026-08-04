@@ -406,29 +406,6 @@ function SourceBarChart({ rows, emptyText }: { rows: WaitlistSourceStat[]; empty
 // this many days at once; HistorySlider is how you move which 14 days that is.
 const WINDOW_DAYS = 14;
 
-// Recomputes {source, count, percent} totals from whichever WINDOW_DAYS slice
-// of the per-day-by-source series is currently in view, so "Signups by
-// source" reflects the visible window instead of only ever an all-time total.
-// Mirrors the backend's withRealShare rounding (one decimal place). There's no
-// 'test' row to exclude here — the API already filters it out before this
-// data ever reaches the client, same as the rest of signupsByDaySource.
-function sumBySourceOverWindow(windowed: WaitlistDailyBySource): WaitlistSourceStat[] {
-  const totals = new Map<string, number>();
-  for (const day of windowed.days) {
-    for (const source of windowed.sources) {
-      totals.set(source, (totals.get(source) || 0) + (day.counts[source] || 0));
-    }
-  }
-  const grandTotal = [...totals.values()].reduce((sum, n) => sum + n, 0);
-  return [...totals.entries()]
-    .map(([source, count]) => ({
-      source,
-      count,
-      percent: grandTotal === 0 ? null : Math.round((count / grandTotal) * 1000) / 10,
-    }))
-    .sort((a, b) => b.count - a.count);
-}
-
 // "2026-08-03" -> "Aug 3". UTC-pinned so a day string never shifts by one
 // depending on the browser's local timezone.
 function formatShortDate(dateStr: string): string {
@@ -567,8 +544,10 @@ export default function Funnel() {
     { label: "Conversion", value: `${data.submittedRate}%` },
   ];
 
-  // Windowing for the three range-aware cards (signups over time, signups per
-  // day by source, signups by source). The slider only appears once there's
+  // Windowing for the two scrubbable cards (signups over time, signups per
+  // day by source). Signups by source stays all-time (data.bySource,
+  // unwindowed) — Aidan wants the overall channel mix, not just whatever
+  // window the slider happens to be on. The slider only appears once there's
   // more history than one window holds — otherwise there's nowhere to scrub.
   const totalDays = data.signupsByDay.length;
   const maxStartIndex = Math.max(0, totalDays - WINDOW_DAYS);
@@ -579,15 +558,10 @@ export default function Funnel() {
     sources: data.signupsByDaySource.sources,
     days: data.signupsByDaySource.days.slice(start, start + WINDOW_DAYS),
   };
-  const windowedBySource = sumBySourceOverWindow(windowedSignupsByDaySource);
   // Only meaningful once there's at least one real day to anchor a range
   // label to — a brand-new waitlist with zero signups has none.
   const windowStartDate = windowedSignupsByDay[0]?.date;
   const windowEndDate = windowedSignupsByDay[windowedSignupsByDay.length - 1]?.date;
-  const bySourceTitle =
-    windowStartDate && windowEndDate
-      ? `Signups by source (${formatRangeLabel(windowStartDate, windowEndDate)})`
-      : "Signups by source";
 
   // Drop-off funnel: visits → started the waitlist form → actually submitted.
   // `started`/`startedRate` already come back from the API but were never
@@ -682,9 +656,8 @@ export default function Funnel() {
       </div>
 
       {/* 3 & 4. Conversion rate in a box of its own, to the left of signups by
-          source. Conversion rate is NOT range-controlled (it's an all-time
-          summary) — the card beside it is, which is why only that one's title
-          names the window. */}
+          source. Neither is scrubber-controlled — both are all-time
+          summaries, same as Signups by video further down. */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Conversion rate">
           <div className="flex flex-wrap gap-2">
@@ -731,18 +704,17 @@ export default function Funnel() {
         </Card>
 
         {/* Signups by source — our own DB (exact, immune to ad blockers).
-            Follows the same scrubber as the two cards above: this re-ranks to
-            the top channels for whichever window is selected, recomputed
-            client-side from signupsByDaySource (sumBySourceOverWindow) rather
-            than a separate API call. */}
-        <Card title={bySourceTitle}>
-          <SourceBarChart rows={windowedBySource} emptyText="No signups yet." />
+            All time, NOT scrubber-controlled — the overall channel mix, same
+            as Conversion rate beside it, rather than whatever window the
+            slider above happens to be on. */}
+        <Card title="Signups by source (all time)">
+          <SourceBarChart rows={data.bySource} emptyText="No signups yet." />
         </Card>
       </div>
 
       {/* 5. Signups by video — our own DB (utm_campaign, captured on submit
           same as source), exact and immune to ad blockers. Not range-controlled
-          (all time) — the scrubber above only governs the three cards it sits
+          (all time) — the scrubber above only governs the two cards it sits
           beside. */}
       <Card title="Signups by video (all time)">
         <SourceBarChart rows={data.byCampaign} emptyText="No signups yet." />

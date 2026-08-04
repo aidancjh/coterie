@@ -126,6 +126,22 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Funnel tab: Signups by source reverted to all-time, not scrubber-controlled (2026-08-04):**
+- The prior day's slider change had made "Signups by source" follow the
+  14-day scrubber (via `sumBySourceOverWindow`). Aidan wanted it back to the
+  overall all-time channel mix — a 14-day window's ranking (Instagram 60.2% /
+  Reddit 24.6% in his screenshot) isn't the number he wants for "which channel
+  actually works," which is what this card is for.
+- ✅ Reverted to `data.bySource` (the API's own all-time, pre-computed totals)
+  with a fixed "Signups by source (all time)" title — same treatment as
+  Conversion rate and Signups by video, both already all-time and explicitly
+  NOT scrubber-controlled. Removed `sumBySourceOverWindow()` and the
+  `windowedBySource`/`bySourceTitle` derived state entirely as dead code now
+  that nothing calls them, rather than leaving them unused. The scrubber above
+  now governs exactly two cards (Signups over time, Signups per day by
+  source), not three.
+- `tsc --noEmit`, 103/103 tests, both production bundles clean.
+
 **Funnel tab: side-by-side charts, history slider replaces the 14-day/all-time toggle (2026-08-03):**
 - Follow-up to the same-day toggle change below. Aidan pointed out the side-by-
   side desktop layout left the two time-series cards mostly empty space, and
@@ -149,10 +165,9 @@ Ordered by priority. Update status inline as these move.
   sizing (`DAY_SLOT`/`BASE_CHART_W`/`ScrollableChart` — all removed as dead
   code) in favour of a fixed internal `viewBox` with `className="w-full"`, the
   standard responsive-SVG technique (no `width`/`height` attributes, so it
-  scales to fill whichever column it's in). "Signups by source" continues to
-  reflect the currently-scrubbed window via the same `sumBySourceOverWindow()`
-  from the earlier change, just driven by slider position instead of a
-  boolean.
+  scales to fill whichever column it's in). "Signups by source" continued to
+  reflect the currently-scrubbed window at this point (reverted to all-time
+  the next day — see 2026-08-04 entry above).
 - ✅ New: `StackedSourceTimeline`'s legend now filters to only the channels
   with at least one signup *within the current window*, instead of always
   listing every channel that ever existed all-time — a channel with zero bars
