@@ -537,15 +537,20 @@ function normalizeGaps(img, { min, max }) {
     `   clearances (artwork px): as drawn ${clearances(clipped).join("·")} ` +
       `→ kerned ${clearances(kernedSrc).join("·")}`
   );
-  // Smaller cover for the Tally survey, at Aidan's request (2026-08-04): the
-  // full 2400×400 cover was "covering the entire" mobile screen. Same 6:1
-  // ratio and wordmark proportions as above, just fewer pixels — this was NOT
-  // verified live against Tally's mobile rendering (no browser access at the
-  // time), so if Tally crops the cover into a fixed-height box on mobile
-  // (common for form-builder hero covers), a same-ratio smaller file may not
-  // actually change what's on screen — that's a container-height/crop issue,
-  // which needs a shorter (less wide) ratio to fix, not fewer pixels.
-  cover(trim(knockout(kernedSrc)), "coterie-cover-red-1800x300-kerned.png", 1800, 300);
+  // Smaller cover for the Tally survey (2026-08-04): the full 2400×400 cover
+  // was "covering the entire" mobile screen. First attempt kept the same 6:1
+  // ratio at fewer pixels (coterie-cover-red-1800x300-kerned.png) — Aidan
+  // confirmed no visible difference, which rules out file weight/resolution:
+  // a browser scales an <img> to fit its box regardless of source pixel
+  // count, so two files with the same aspect ratio render identically once
+  // scaled. That means Tally is almost certainly cropping the cover into a
+  // roughly square-ish box on mobile (typical for form-builder hero covers),
+  // and a 6:1 source needs a large zoom to fill a near-square crop — that
+  // zoom is what "covers everything." A less-wide ratio needs less zoom to
+  // fill the same box, so this is 3:1 instead of 6:1 — still NOT verified
+  // live (no browser access this session either), so this is the next best
+  // guess given the 6:1 result, not a confirmed fix.
+  cover(trim(knockout(kernedSrc)), "coterie-cover-red-1500x500-kerned.png", 1500, 500);
 
   // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
   // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.

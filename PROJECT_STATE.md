@@ -126,21 +126,28 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
-**Smaller Tally cover export, `coterie-cover-red-1800x300-kerned.png` (2026-08-04):**
+**Tally cover export — chasing the "covers the entire phone screen" report (2026-08-04, ongoing):**
 - Aidan reported the 2400×400 cover (see 2026-07-30 entry below) "covers the
   entire" phone screen on the Tally volleyball survey. `scripts/gen-logo.mjs`'s
-  `cover()` now takes optional `CW`/`CH` (defaults unchanged at 2400×400);
-  added a same-6:1-ratio, same-wordmark-proportion 1800×300 kerned export.
-  Ran the full generator and confirmed via `git diff` that every other output
-  is byte-identical — only the new file was added.
-- ⚠️ **Not verified against Tally's actual mobile rendering** — Claude in
-  Chrome was disconnected all session (retried 3×), and I didn't have the
-  survey's URL to check any other way. A same-ratio smaller file only helps if
-  the problem is raw file weight/resolution; if Tally instead crops the cover
-  into a fixed-height box on mobile (common for form-builder hero covers, and
-  the more likely read of "covers the entire screen"), the fix is a
-  **shorter/less-wide ratio**, not fewer pixels — flagged to Aidan, not yet
-  built. Confirm which it is before generating a differently-shaped cover.
+  `cover()` now takes optional `CW`/`CH` (defaults unchanged at 2400×400).
+- Attempt 1: `coterie-cover-red-1800x300-kerned.png` — same 6:1 ratio, fewer
+  pixels. **Aidan confirmed no visible difference.** That's diagnostic, not
+  just a failed fix: a browser scales an `<img>` to fit its box regardless of
+  source pixel count, so two files at the same aspect ratio render
+  identically once scaled — ruling out file weight/resolution as the cause.
+- Attempt 2 (current): `coterie-cover-red-1500x500-kerned.png` — 3:1 instead
+  of 6:1. Reasoning from the ruled-out result above: Tally is almost
+  certainly cropping the cover into a roughly square-ish box on mobile
+  (typical for form-builder hero covers), and a 6:1 source needs a large zoom
+  to fill a near-square crop — that zoom is what "covers everything." A
+  less-wide ratio needs less zoom to fill the same box.
+- ⚠️ **Still not verified against Tally's actual mobile rendering** — Claude
+  in Chrome has been disconnected the entire session (retried multiple times
+  across both attempts), and there's no other way to check without the
+  survey's URL. This is the next best guess given what attempt 1 ruled out,
+  not a confirmed fix. If 3:1 still doesn't help, that would rule out
+  "aspect-ratio mismatch with a square-ish crop box" too, and point at
+  something else in Tally's own cover display settings instead of the image.
 
 **Funnel tab: Signups by source reverted to all-time, not scrubber-controlled (2026-08-04):**
 - The prior day's slider change had made "Signups by source" follow the
