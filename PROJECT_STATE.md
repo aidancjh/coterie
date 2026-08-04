@@ -126,6 +126,22 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Smaller Tally cover export, `coterie-cover-red-1800x300-kerned.png` (2026-08-04):**
+- Aidan reported the 2400×400 cover (see 2026-07-30 entry below) "covers the
+  entire" phone screen on the Tally volleyball survey. `scripts/gen-logo.mjs`'s
+  `cover()` now takes optional `CW`/`CH` (defaults unchanged at 2400×400);
+  added a same-6:1-ratio, same-wordmark-proportion 1800×300 kerned export.
+  Ran the full generator and confirmed via `git diff` that every other output
+  is byte-identical — only the new file was added.
+- ⚠️ **Not verified against Tally's actual mobile rendering** — Claude in
+  Chrome was disconnected all session (retried 3×), and I didn't have the
+  survey's URL to check any other way. A same-ratio smaller file only helps if
+  the problem is raw file weight/resolution; if Tally instead crops the cover
+  into a fixed-height box on mobile (common for form-builder hero covers, and
+  the more likely read of "covers the entire screen"), the fix is a
+  **shorter/less-wide ratio**, not fewer pixels — flagged to Aidan, not yet
+  built. Confirm which it is before generating a differently-shaped cover.
+
 **Funnel tab: Signups by source reverted to all-time, not scrubber-controlled (2026-08-04):**
 - The prior day's slider change had made "Signups by source" follow the
   14-day scrubber (via `sumBySourceOverWindow`). Aidan wanted it back to the

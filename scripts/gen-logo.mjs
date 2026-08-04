@@ -478,8 +478,7 @@ function normalizeGaps(img, { min, max }) {
   // is close to the strip a form/site cover actually renders, and because
   // covers are centre-cropped to fit, the wordmark is kept under ~40% of the
   // width so it survives even a hard crop to mobile proportions.
-  const cover = (mark, file) => {
-    const CW = 2400, CH = 400;
+  const cover = (mark, file, CW = 2400, CH = 400) => {
     let mh = Math.round(CH * 0.5);
     let mw = Math.round((mark.w / mark.h) * mh);
     const maxW = Math.round(CW * 0.4);
@@ -538,6 +537,15 @@ function normalizeGaps(img, { min, max }) {
     `   clearances (artwork px): as drawn ${clearances(clipped).join("·")} ` +
       `→ kerned ${clearances(kernedSrc).join("·")}`
   );
+  // Smaller cover for the Tally survey, at Aidan's request (2026-08-04): the
+  // full 2400×400 cover was "covering the entire" mobile screen. Same 6:1
+  // ratio and wordmark proportions as above, just fewer pixels — this was NOT
+  // verified live against Tally's mobile rendering (no browser access at the
+  // time), so if Tally crops the cover into a fixed-height box on mobile
+  // (common for form-builder hero covers), a same-ratio smaller file may not
+  // actually change what's on screen — that's a container-height/crop issue,
+  // which needs a shorter (less wide) ratio to fix, not fewer pixels.
+  cover(trim(knockout(kernedSrc)), "coterie-cover-red-1800x300-kerned.png", 1800, 300);
 
   // 8b/8c. Square logo tiles, safe for a circular crop: the mark is padded to
   // 18% a side (more than the app icons' 13%) so a circle mask can't clip it.
