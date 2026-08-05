@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-07-31 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-05 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -125,6 +125,69 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Business overview corrected + full 61-slide deck built for the "Volleyball Logo" Google Slides file (2026-08-05, partially blocked):**
+- Aidan asked to work in a specific Google Slides deck (the Jabez logo-design deck,
+  `1te0TiJuzn3eW1JmLJpLmezRvWvLQrjOtS2dOnhoBPSQ`, titled "Volleyball Logo" — 3
+  existing slides, untouched) — appending a comprehensive slide-by-slide transcript
+  of the business overview doc, after first verifying the doc matched the live app.
+- ✅ **Doc accuracy audit against the real app**, not just PROJECT_STATE: read
+  `Coterie-Business-Overview.docx` in full (unzip + XML extraction — no `pandoc` on
+  this machine), cross-checked every claim against current code and the **live**
+  coterie.com.de (logged in as a demo account). Found one real drift: the doc still
+  said host reviews were "collected but not yet displayed on host profiles" in three
+  places (Trust & reputation section, Roadmap near-term list, Glossary). Live check
+  confirmed a "106 REVIEWS" stat now renders on the profile header (the 2026-07-29
+  header rebuild — see below) — but `src/pages/Profile.tsx:408` and
+  `UserProfile.tsx:93` only pass `hostRating?.count` into `ProfileHeader`, never
+  `hostRating.avg` (confirmed via `Grep` — `avg` is typed in `types.ts` but has zero
+  render call sites). So the accurate correction is "review count now shown, average
+  star rating still not rendered" — not a blanket "now displayed," which the first
+  edit attempt initially got wrong (grammar-broken too) before a second pass fixed
+  the wording. All three spots corrected + cover date bumped to 5 Aug 2026.
+- ⚠️ **The corrected `.docx` could not be saved back to
+  `C:\Users\aidan\OneDrive - Soul ways\Claude\Coterie-Business-Overview.docx`** —
+  Word had it open the entire session (`Get-Process WINWORD` confirmed, retried
+  twice). The corrected file is sitting at
+  `...\scratchpad\Coterie-Business-Overview-UPDATED.docx` (also sent to Aidan
+  directly) — **close Word and ask Claude to copy it over**, or apply the 3 edits by
+  hand (search each doc for "not yet displayed on host profiles" / "displayed
+  nowhere" / "profile display is a near-term step").
+- ✅ **Built a 61-slide deck** (`pptxgenjs`, since `npm ls -g` showed it wasn't
+  preinstalled on this machine — installed locally in a scratch npm project)
+  transcribing every section of the business overview: front matter (title, how to
+  use, at a glance, exec summary) + all 13 numbered sections, each with a dark
+  divider slide (red circle + section number, matching a Coterie-red/white "sandwich"
+  palette) and content slides in bullets/tables/two-column/stat-card layouts,
+  glossary split across 2 slides to keep row heights safe. QA'd via
+  `scripts/office/validate.py` (schema/relationship checks — clean) and `markitdown`
+  text-dump review (no placeholders, all facts present) since **this machine has no
+  LibreOffice/`pdftoppm`**, so the skill's normal visual-QA render step was
+  unavailable — mitigated by using `shrinkText: true` (`<a:normAutofit/>`, the real
+  PowerPoint/Slides "shrink on overflow" flag) on every text box, after first
+  catching that `fit: "shrink"` isn't a real pptxgenjs option (only `shrinkText` and
+  the unrelated `autoFit`/`spAutoFit` are) by reading the library's own type defs —
+  worth remembering if this machine builds another deck blind.
+- ⚠️ **Could not actually import the 61 slides into the target deck.** Plan was:
+  upload the `.pptx` to Drive as a Google Slides file via the Drive MCP connector,
+  then use Slides' own "Import slides" to append it (preserves the 3 existing slides
+  untouched, no API needed). Blocked on both ends: the **Drive connector needs
+  reconnecting** (`create_file`/`search_files`/`get_file_metadata` all returned "This
+  connector requires additional permissions" — confirmed it's a full read+write block,
+  not scope-specific, via a throwaway test-file write attempt) and **Claude in Chrome
+  wasn't connected** this session (would have given file-upload capability + Aidan's
+  real Google login instead of the anonymous "Anyone with the link can edit" identity
+  the in-app Browser pane got — that anonymous session has full edit UI but no way to
+  upload a local file). The in-app Browser pane's edit access to the deck itself was
+  never the blocker — the file transfer was.
+- **Finished, unblocked deliverable:** `Coterie-Business-Overview-slides.pptx`
+  sent directly to Aidan. To finish (under a minute, no reconnection needed): open
+  the deck → File → Import slides → Upload → select the file → Select all → Import
+  slides. The 3 existing "Volleyball Logo" slides were never touched by any tool call
+  this session (only read via `get_page_text`/`read_page`).
+- **Open task, not yet in §4 as a numbered item:** reconnect the Drive MCP connector
+  (Aidan's step) if he wants Claude to finish the merge directly next time instead of
+  doing the 1-minute import himself.
 
 **Tally cover export — chasing the "covers the entire phone screen" report (2026-08-04, ongoing):**
 - Aidan reported the 2400×400 cover (see 2026-07-30 entry below) "covers the
