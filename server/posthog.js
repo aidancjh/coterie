@@ -34,12 +34,23 @@ const SINCE_UTM_FIX = `timestamp >= toDateTime('${UTM_FIX_DATE}', 'UTC')`;
 // signup queries already exclude — so testing from your own device doesn't
 // skew the real numbers. Visit https://coterie.com.de/waitlist?utm_source=test
 // from your own browser to keep your pageviews out of this count.
+//
+// The date/event filters live in a top-level WHERE, not just inside each
+// countIf, so ClickHouse can prune by timestamp and event type before
+// scanning — without it, this was the one query (of the four PostHog queries
+// the funnel route makes) that had to scan the project's *entire* unfiltered
+// event history, consistently blowing PostHog's 10s max_execution_time and
+// surfacing as "PostHog data unavailable (PostHog query failed (504))"
+// (confirmed 2026-08-05: identical results either way, but ~3s vs. hitting
+// the 10s ceiling — see PROJECT_STATE.md).
 const FUNNEL_QUERY = `
   SELECT
-    countIf(event = '$pageview' AND properties.$pathname = '/waitlist' AND coalesce(properties.utm_source, '') != 'test' AND ${SINCE_LAUNCH}) AS visits,
-    countIf(event = 'waitlist_email_started' AND ${SINCE_LAUNCH}) AS started,
-    countIf(event = 'waitlist_signup' AND ${SINCE_LAUNCH}) AS submitted
+    countIf(event = '$pageview' AND properties.$pathname = '/waitlist' AND coalesce(properties.utm_source, '') != 'test') AS visits,
+    countIf(event = 'waitlist_email_started') AS started,
+    countIf(event = 'waitlist_signup') AS submitted
   FROM events
+  WHERE ${SINCE_LAUNCH}
+    AND event IN ('$pageview', 'waitlist_email_started', 'waitlist_signup')
 `;
 
 // Page visits on /waitlist grouped by the utm_source that was on the URL when

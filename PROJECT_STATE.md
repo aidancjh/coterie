@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-05 · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-05 (Funnel tab PostHog 504 fix) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -125,6 +125,73 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Business Overview docx + slides synced to real Funnel numbers (2026-08-05):**
+- Aidan asked (as a standing preference going forward, not a one-off) that whenever he
+  shares new information or makes a change, the relevant standing documents get updated
+  in the same turn — not just code/PROJECT_STATE.md. The known standing docs, both at
+  `C:\Users\aidan\OneDrive - Soul ways\Claude\`: `Coterie-Business-Overview.docx` and
+  `Coterie-Business-Overview-slides.pptx`. Saved as a durable memory so future sessions
+  (including on the other machine) pick this up automatically.
+- Applied it immediately to the real Funnel screenshot Aidan shared: 555 visits, 200
+  signups (36% conversion, 60% drop-off before opening the form), and the per-source
+  breakdown (91 Reddit/45.5%, 78 Instagram/39%, 13 Telegram/6.5%, 11 direct/5.5%, 4
+  Google Form/2%, 2 other/1%, 1 TikTok/0.5%) — replacing the stale "~73 signups, as of
+  22 July 2026" figures (62 Reddit/7 Telegram/4 Instagram) in both files.
+- ✅ **docx**: edited 7 paragraphs directly in `word/document.xml` (unzip → offset-based
+  patch preserving bold runs → validate → rezip), covering the cover stat, the At-a-
+  Glance table, the executive summary, the full Traction & Growth section, and the
+  investor-eyes roadmap bullet. Softened the now-inaccurate "almost all" / "85%"
+  Reddit-share language to match the real 45.5%, and noted Instagram's jump from 4 to
+  78 signups as an observed fact — not a claimed cause, since nothing here confirms the
+  content push is what drove it. Validated via `scripts/office/validate.py` (475
+  paragraphs before/after, unrelated to this repo's own test suite) — passed.
+- ✅ **pptx**: same numbers applied across slides 1, 3, 5, 41, 42, 59 (title stage line,
+  At-a-Glance table, exec summary, the Traction stat-callout slide, the content-plan
+  slide, and the investor-eyes roadmap slide). Kept edits short — this deck's text boxes
+  are fixed-size, unlike the docx which reflows — after measuring that a first draft of
+  the slide 42/59 edits ran 66–67% longer than the original text risked overflow with no
+  way to visually confirm on this machine.
+- ⚠️ **No visual QA possible** — this machine has no LibreOffice/`pdftoppm` (confirmed
+  again this session), so the pptx changes are verified by `markitdown` text dump +
+  `validate.py` schema/relationship checks only, not a rendered look. Slide 42's edited
+  text box has no `<a:normAutofit/>`; slide 41 and 59's do (so PowerPoint will reflow
+  those on open). **Ask Aidan to open the deck once and confirm nothing overflows on
+  slides 41/42/59**, especially slide 42.
+- Not touched: the "What launch will measure" KPI table (slide 42 / docx) — that's
+  future post-launch instrumentation status, not a current number, so the stale-data
+  problem doesn't apply there.
+
+**Funnel tab: fixed the recurring "PostHog data unavailable (PostHog query failed (504))" banner + slow loads (2026-08-05):**
+- Aidan reported the amber PostHog-unavailable banner showing up consistently on
+  the admin Funnel tab, plus the tab always being slow to load.
+- Root cause, confirmed with production logs (`railway logs`, admin/posthog
+  service in the `carefree-magic` project) and direct HogQL calls against
+  PostHog: `queryWaitlistFunnel`'s `FUNNEL_QUERY` (`server/posthog.js`) was the
+  **only** one of the 4 PostHog queries the funnel route makes that had no
+  top-level `WHERE` — its date/event filters lived only inside each `countIf`.
+  That forces ClickHouse to scan the project's entire unfiltered event history
+  before it can start counting, instead of pruning by timestamp/event type like
+  the other 3 queries (which all have a top-level `WHERE` and never appeared in
+  the failure logs). PostHog enforces `max_execution_time=10` per query
+  (visible in its own response metadata) — the unfiltered scan intermittently
+  blew that ceiling and PostHog's gateway returned 504. `runHogQL`'s retry logic
+  (3 attempts, since 504 is in `RETRYABLE_STATUSES`) then retried the same
+  doomed full scan 3x unchanged, turning one slow query into the ~15s total
+  request time seen in the logs (`GET /analytics/funnel 200 15386ms`).
+- ✅ Fix: added a top-level `WHERE ${SINCE_LAUNCH} AND event IN (...)` to
+  `FUNNEL_QUERY`, hoisting the same filters already used inside each `countIf`
+  so ClickHouse can prune before scanning. Verified identical results before/
+  after (`[555, 224, 192]`) via direct curl against the PostHog HogQL endpoint,
+  and confirmed the fixed query now runs in ~1–2s even on a cold cache (was
+  hitting the 10s cap before). `tests/posthog.test.js` (14 tests) doesn't
+  assert exact query text, so nothing there needed changing; full suite still
+  passes.
+- Not changed: the retry logic itself, and the fact that the 4 PostHog queries
+  run as separate HTTP requests rather than being merged into fewer — the
+  unfiltered scan was the dominant, clearly-evidenced cause of both the
+  failures and most of the latency; no evidence pointed at those as problems
+  once this fix was verified.
 
 **Business overview corrected + full 61-slide deck built for the "Volleyball Logo" Google Slides file (2026-08-05, partially blocked):**
 - Aidan asked to work in a specific Google Slides deck (the Jabez logo-design deck,
