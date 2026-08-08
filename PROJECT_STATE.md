@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-05 (Funnel tab PostHog 504 fix) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-08 (waitlist → 400) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -125,6 +125,33 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Waitlist updated to 400 everywhere it is stated (2026-08-08):**
+- Aidan reported the waitlist is now **400** (was 200 on 2026-08-05, ~73 on 2026-07-22).
+- ✅ Live user-facing copy, both repos (main + `coterie-prototype`, kept in sync per
+  CLAUDE.md): `WaitlistDesktop.tsx` "Join 100+ players already on the list" → "400+",
+  `WaitlistMobile.tsx` "100+ players already on the list" → "400+". These were the only
+  hardcoded counts in the product — the admin dashboard reads `getWaitlistCount()` from
+  the DB and needed no change.
+- ✅ `Coterie-Business-Overview.docx`: cover stat, At-a-Glance row, exec summary,
+  Traction section, Reddit-story paragraph, content/Instagram paragraph and the
+  investor-eyes roadmap bullet. Same unzip → exact-string patch → validate → rezip
+  method as 2026-08-05 (475 paragraphs before and after, part list byte-identical to
+  the original, backup kept in the session scratchpad).
+- ⚠️ **Derived stats deliberately softened, not rescaled.** The per-source breakdown
+  (91 Reddit/45.5%, 78 Instagram/39%, 13 Telegram/6.5%, …) and the 555-visits/36%
+  conversion figures were all computed off the old 200 total, and no refreshed Funnel
+  data was available. Rescaling them would have invented numbers, and leaving them
+  would have made the doc self-contradictory (source counts summing to 200 under a
+  stated 400 total; 400/555 implying a 72% conversion). So every derived figure is now
+  a directional claim ("Reddit remains the largest single channel"), and the Traction
+  section explicitly says exact per-channel counts and the conversion rate must be
+  re-read from the admin Funnel before being quoted. **Open task: re-pull the Funnel
+  breakdown and restore the precise numbers.**
+- Not touched: `Coterie-Business-Overview-slides.pptx` — **that file does not exist on
+  this Mac.** It was only ever edited from the Windows machine / lives in Google Slides,
+  so its slides 1/3/5/41/42/59 still carry the 200-signup figures and need the same
+  update from wherever that deck actually lives.
 
 **Business Overview docx + slides synced to real Funnel numbers (2026-08-05):**
 - Aidan asked (as a standing preference going forward, not a one-off) that whenever he
@@ -1297,9 +1324,12 @@ This section is the portable copy. Keep it current.)
   name is Coterie everywhere; Singapore-only, volleyball-only (SEA
   years out, only if very successful locally); **no Financials section** (removed at Aidan's
   request); future features (marketplace, in-app payments, live scorecard, coaching) are
-  explicitly gated behind perfecting the host/join core loop; waitlist is ~73 —
-  62 Reddit / 7 Telegram / 4 Instagram, founder-reported 2026-07-22, driven by two
-  r/SGVolleyball problem-posts with 50k+ combined views; the doc has a
+  explicitly gated behind perfecting the host/join core loop; waitlist is 400,
+  founder-reported 2026-08-08 (superseding 200 on 2026-08-05 and ~73 on 2026-07-22),
+  originally driven by two r/SGVolleyball problem-posts with 50k+ combined views —
+  ⚠️ the per-source split and visit-to-signup conversion have NOT been refreshed
+  alongside this number, so the old 91 Reddit / 78 Instagram / 555-visit / 36%
+  figures no longer reconcile against a 400 total and must not be quoted; the doc has a
   "Singapore scene on the ground" market section (founder interview 2026-07-22:
   40–60 games/wk, Telegram listing vignette, ~half of games see no-shows, ~90% pay
   after, $5–$10/player, age-segregated crews; verified: 24 ActiveSG volleyball venues,
