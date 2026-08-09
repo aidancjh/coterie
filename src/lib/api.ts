@@ -22,40 +22,13 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  /** True when the pre-launch access gate blocked the request (server sends
-   *  `locked: true` with its 401). Distinguishes "the whole site is closed"
-   *  from "your token is bad" — they look identical from the status code alone,
-   *  and treating the first as the second silently signs people out. */
-  locked: boolean;
-  constructor(message: string, status: number, locked = false) {
+  constructor(message: string, status: number) {
     super(message);
     this.status = status;
-    this.locked = locked;
   }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Pages that must keep working while the pre-launch gate is on. A visitor
-// reading the waitlist with a stale token in localStorage triggers /auth/me,
-// which the gate refuses — bouncing them to a password prompt would be a
-// terrible first impression, so these paths never redirect.
-const PUBLIC_PATHS = ["/waitlist", "/privacy", "/unlock"];
-
-/**
- * Send the user to the access-gate password page after a `locked` response.
- *
- * Without this you get a dead end: the service worker serves the cached app
- * shell, the UI renders, and every action fails with "Coterie isn't open yet"
- * and no way forward. It also gives the installed PWA a route to /unlock, which
- * otherwise has no address bar to type one into. Uses a full page load, not the
- * client router — /unlock is server-rendered and has no route in this app.
- */
-function redirectToUnlock() {
-  if (typeof window === "undefined") return; // tests / SSR
-  if (PUBLIC_PATHS.includes(window.location.pathname)) return;
-  window.location.replace("/unlock");
-}
 
 interface RequestOptions {
   method?: string;
@@ -107,10 +80,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
           (data && typeof data === "object" && "error" in data
             ? String((data as { error: unknown }).error)
             : null) || `Request failed (${res.status})`;
-        const locked =
-          !!data && typeof data === "object" && (data as { locked?: unknown }).locked === true;
-        if (locked) redirectToUnlock();
-        throw new ApiError(message, res.status, locked);
+        throw new ApiError(message, res.status);
       }
       return data as T;
     } catch (err) {

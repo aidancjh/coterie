@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { SkillLevel, User } from "../types";
-import { ApiError, api, getToken, setToken } from "../lib/api";
+import { api, getToken, setToken } from "../lib/api";
 import { clearCache } from "../lib/cache";
 
 interface AuthState {
@@ -48,11 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<{ user: User }>("/auth/me")
       .then((r) => active && setUser(r.user))
-      .catch((err) => {
-        // A 401 from the pre-launch access gate means the site is closed, not
-        // that this token is bad — dropping it there would sign everyone out
-        // (and lose their session for good) just for loading the waitlist page.
-        if (err instanceof ApiError && err.locked) return;
+      .catch(() => {
         setToken(null); // stale/invalid token
       })
       .finally(() => active && setLoading(false));

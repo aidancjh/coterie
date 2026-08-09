@@ -127,6 +127,29 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Access gate REMOVED — the app is public again (2026-08-09, same day it shipped):**
+- Aidan's call after the gate cost more than it was worth: the service worker made
+  `/unlock` unreachable in real browsers twice over, and the workarounds (a stale-worker
+  escape hatch at `/api/unlock`, a private window) were friction on his own testing.
+  **The app is public to everyone; there is no password.**
+- Deleted: `server/middleware/accessGate.js`, `tests/accessGate.test.js`, the
+  `/unlock` + `/api/unlock` routes, `unlockLimiter`, the `locked` flag on `ApiError`
+  and its redirect, `AuthContext`'s locked branch, and the `APP_PRIVATE` /
+  `APP_ACCESS_PASSWORD` variables in Railway. `robots.txt` is now unconditionally
+  `Allow: /`.
+- **Deliberately KEPT**, because they are good regardless of the gate:
+  - Zero-downtime deploys — listen-first, the `ready` flag, `healthcheckPath`. This is
+    the fix for the UptimeRobot alerts and is unrelated to the gate.
+  - `admin-server.js`'s real `/healthz`.
+  - `navigateFallbackDenylist` keeping `/healthz` and `/robots.txt` out of the SPA
+    fallback — both are genuinely server-rendered and were being shadowed.
+  - `.gitattributes`.
+- **Lesson worth keeping:** a service worker with `navigateFallback` will answer *any*
+  navigation from the precached `index.html` unless the path is in
+  `navigateFallbackDenylist`. Add any new server-rendered path there in the same
+  change, or it is invisible in every browser that has ever loaded the app — and `curl`
+  will not show you, because curl has no service worker.
+
 **Service worker was swallowing /unlock — gate page unreachable (2026-08-09):**
 - **Symptom:** going to `coterie.com.de/unlock` in a real browser landed on `/auth`
   instead of the password page, so there was no way into the app. `curl /unlock`

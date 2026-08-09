@@ -71,20 +71,6 @@ export const waitlistLimiter = rateLimit({
   message: { error: "Too many signups from this network — try again later." },
 });
 
-// Pre-launch access gate (POST /unlock). Like the admin password below this is
-// a single shared low-entropy secret, so it gets the same strict treatment.
-// Deliberately its own instance rather than reusing authLimiter: sharing one
-// would pool the counter with password-reset attempts, so a few forgotten
-// passwords could lock the whole team out of the site itself.
-export const unlockLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
-  skipSuccessfulRequests: true, // only wrong guesses count
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many attempts — please wait 15 minutes and try again." },
-});
-
 // The admin service is low-volume/trusted (a handful of admins, not the
 // public), so this is tighter than the consumer app's apiLimiter — mainly a
 // backstop against a runaway script or a compromised admin token, not normal

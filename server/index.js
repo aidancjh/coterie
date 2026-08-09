@@ -20,15 +20,7 @@ import {
   apiLimiter,
   contentLimiter,
   waitlistLimiter,
-  unlockLimiter,
 } from "./middleware/rateLimiters.js";
-import {
-  accessGate,
-  gateEnabled,
-  checkPassword,
-  grantAccess,
-  unlockPage,
-} from "./middleware/accessGate.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -142,49 +134,10 @@ app.use("/api", (_req, res, next) => {
   return res.status(503).json({ error: "Coterie is starting up — try again in a moment." });
 });
 
-// --- Pre-launch access gate ----------------------------------------------
-// Off unless APP_PRIVATE=true and APP_ACCESS_PASSWORD are both set. When on,
-// the waitlist stays public and everything else needs the unlock cookie — see
-// middleware/accessGate.js for exactly what is exempt and why.
-if (gateEnabled) {
-  // Two paths, one page. A browser still running a service worker built before
-  // /unlock was denylisted answers GET /unlock from its own cache and never asks
-  // the server, so the password page is unreachable there until the worker
-  // updates. Workbox's navigation route denylists /api in every version we have
-  // ever shipped, so /api/unlock always reaches the network — it is the escape
-  // hatch for any stale client, including an installed PWA.
-  // POST needs no alias: workbox's NavigationRoute only handles GET, so a form
-  // submission goes to the network regardless of how old the worker is.
-  app.get(["/unlock", "/api/unlock"], (_req, res) =>
-    res.type("html").send(unlockPage())
-  );
-  app.post(
-    "/unlock",
-    unlockLimiter, // 5 wrong guesses / 15 min per IP — a shared low-entropy
-    // secret, so brute-force protection matters more here than almost anywhere
-    express.urlencoded({ extended: false, limit: "1kb" }),
-    (req, res) => {
-      if (!checkPassword(req.body?.password))
-        return res
-          .status(401)
-          .type("html")
-          .send(unlockPage("That password didn't work. Try again."));
-      grantAccess(res);
-      res.redirect(302, "/");
-    }
-  );
-  app.use(accessGate);
-  console.log("[gate] APP_PRIVATE is on — only the waitlist is public");
-}
-
-// Crawler instructions. Served as a route rather than a static file so it
-// tracks the gate automatically: no launch-day checklist item to remember.
+// Crawler instructions. A route rather than a static file so it lives next to
+// the other public endpoints and can be changed without a rebuild.
 app.get("/robots.txt", (_req, res) => {
-  res.type("text/plain").send(
-    gateEnabled
-      ? "User-agent: *\nAllow: /waitlist\nAllow: /privacy\nDisallow: /\n"
-      : "User-agent: *\nAllow: /\n"
-  );
+  res.type("text/plain").send("User-agent: *\nAllow: /\n");
 });
 
 // Maintenance mode: when the flag is on, block normal /api traffic with a 503

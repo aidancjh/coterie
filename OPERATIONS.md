@@ -21,8 +21,6 @@ Practical guide for running Vybe in production (Railway + PostgreSQL).
 | `VITE_SENTRY_DSN` | frontend error reporting (safe to expose) | optional |
 | `VITE_CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | avatar + banner + highlight uploads (signed — see `POST /api/uploads/sign`) | optional |
 | `CLOUDINARY_CLOUD_NAME` | scopes which Cloudinary URLs the API accepts to your own account | optional |
-| `APP_PRIVATE` | `true` locks the app behind a password while the waitlist stays public — see *Pre-launch lockdown* below | optional |
-| `APP_ACCESS_PASSWORD` | the shared password for that gate — **12+ characters**. With `APP_PRIVATE=true` and this missing or too short, the server refuses to start rather than booting public | optional |
 
 > **Before a public / app-store launch:** set `SEED_DEMO=false` so the production
 > database has no publicly-known demo credentials or fake content. (Existing demo
@@ -77,40 +75,6 @@ The edge log shows two monitors: `GET /` every 60s and `HEAD /healthz`. Point bo
 **`/healthz`** — it is the only endpoint that actually checks the database, it stays
 public with the access gate on, and once the gate ships `GET /` answers **302** to
 `/waitlist` (fine if the monitor follows redirects, a false alarm if it does not).
-
-## Pre-launch lockdown (keeping the app private)
-
-Set **both** `APP_PRIVATE=true` and `APP_ACCESS_PASSWORD=<12+ characters>` on the
-**consumer** service in Railway. It redeploys automatically; the gate is live in ~2 min.
-
-| Path | With the gate on |
-|---|---|
-| `/` | redirects to `/waitlist` — a stranger sees a pre-launch page, not a locked door |
-| `/waitlist`, `/privacy` | public, unchanged |
-| `POST /api/waitlist` | public — signups and their utm attribution keep working |
-| `/healthz` | public, so UptimeRobot does not false-alarm |
-| static assets (`/assets/*`, icons, `sw.js`) | public — the waitlist is part of the same bundle |
-| everything else (`/auth`, `/game/:id`, the rest of `/api`) | password required |
-
-**To get in yourself:** open `https://coterie.com.de/unlock` and enter the password
-once. It sets a 90-day httpOnly cookie, so a PWA installed on your test phone stays
-unlocked and you are not re-prompted mid-session.
-
-**To revoke access for everyone** (the password leaked, a tester left): change
-`APP_ACCESS_PASSWORD`. Every cookie already issued stops working immediately, because
-the cookie is an HMAC over the password rather than a random session id. Rotating
-`JWT_SECRET` has the same effect. Cookies also carry their own signed expiry (90 days),
-checked server-side, so a copied cookie dies on schedule even if the browser is told to
-keep it forever. There is no per-person revocation — it is one shared secret; if you
-need named access, put the domain behind Cloudflare Access instead.
-
-**To go live:** delete `APP_PRIVATE` (or set it to `false`). `/robots.txt` opens up on
-its own — it is generated from the same flag, so there is no launch-day checklist item.
-
-**Not affected:** the admin service is a separate Railway deploy with its own entry
-point (`admin-server.js`), so it never passes through this gate. The preview fork
-(preview.coterie.com.de) is a different Railway project with its own database and is
-likewise untouched.
 
 ## Granting yourself admin
 

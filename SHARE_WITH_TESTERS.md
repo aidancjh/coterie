@@ -4,12 +4,6 @@ Send testers to the **preview app** — **https://preview.coterie.com.de**. It i
 near-exact copy of the real app on its own database, so testers can create games,
 join, chat and rate without touching production data.
 
-> **The main app at coterie.com.de is private** while it is being developed
-> (`APP_PRIVATE=true` — see OPERATIONS.md). That domain now shows the waitlist to
-> the public; the app behind it needs the access password. Do not send testers there.
-
----
-
 ## Message to copy-paste to testers
 
 > Hey! I would love your help testing my volleyball app, **Coterie** 🏐
