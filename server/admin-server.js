@@ -18,6 +18,7 @@ import { adminApiLimiter, adminLoginLimiter } from "./middleware/rateLimiters.js
 import { signAdminToken, verifyAdminPassword } from "./adminAuth.js";
 import adminRoutes from "./adminRoutes.js";
 import { findUserByEmail, logAdminAction } from "./repo.js";
+import { query } from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -76,6 +77,23 @@ app.post("/api/auth/login", adminLoginLimiter, async (req, res) => {
 });
 
 app.use("/api/admin", adminRoutes);
+
+// Health check. Must be declared BEFORE the static/catch-all block below, which
+// would otherwise answer /healthz with admin.html — a 200 that says "healthy"
+// even with the database on fire. Also required now that railway.json sets
+// healthcheckPath: if this service inherits that config and has no real
+// /healthz, its deploys would be gated on an accidental HTML response.
+// Unlike the consumer app there is no readiness phase here: this service runs no
+// migrations or seeding, so it is ready the moment it listens.
+app.get("/healthz", async (_req, res) => {
+  try {
+    await query("SELECT 1");
+    res.json({ status: "ok", service: "admin" });
+  } catch (err) {
+    console.error("[admin-api] health check db failed:", err);
+    res.status(503).json({ status: "db_unavailable", service: "admin" });
+  }
+});
 
 // --- Serve the built admin frontend in production --------------------------
 const distDir = path.join(__dirname, "..", "dist-admin");

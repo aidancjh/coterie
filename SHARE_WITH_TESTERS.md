@@ -1,22 +1,30 @@
-# Sharing Vybe with testers
+# Sharing Coterie with testers
 
-The app is live at **https://coterie.com.de** — no install, login, or app-store approval needed. Just send the link.
+Send testers to the **preview app** — **https://preview.coterie.com.de**. It is a
+near-exact copy of the real app on its own database, so testers can create games,
+join, chat and rate without touching production data.
+
+> **The main app at coterie.com.de is private** while it is being developed
+> (`APP_PRIVATE=true` — see OPERATIONS.md). That domain now shows the waitlist to
+> the public; the app behind it needs the access password. Do not send testers there.
 
 ---
 
 ## Message to copy-paste to testers
 
-> Hey! I'd love your help testing my volleyball app, **Vybe** 🏐
+> Hey! I would love your help testing my volleyball app, **Coterie** 🏐
 >
-> 👉 **https://coterie.com.de**
+> 👉 **https://preview.coterie.com.de**
 >
 > Open it on your phone. To make it feel like a real app:
 > - **iPhone:** tap the **Share** button (the square with the arrow) → **Add to Home Screen**
 > - **Android:** tap the **⋮ menu** → **Add to Home screen** (or **Install app**)
 >
-> It'll get an icon and open fullscreen, just like a normal app.
+> It will get an icon and open fullscreen, just like a normal app.
 >
-> Make an account (real email or "Continue with Google"), then try: browsing games, creating one, joining one, the chat, and your profile. Tell me anything that's confusing, broken, or ugly — brutal honesty welcome!
+> Make an account (real email or "Continue with Google"), then try: browsing games,
+> creating one, joining one, the chat, and your profile. Tell me anything that is
+> confusing, broken, or ugly — brutal honesty welcome!
 
 ---
 
@@ -25,20 +33,26 @@ The app is live at **https://coterie.com.de** — no install, login, or app-stor
 - Sign up / log in (email + password, or Google)
 - Onboarding (skill level, preferences)
 - Browse & filter games
-- Create / edit a game (including recurring)
+- Create / edit a game
 - Join / leave a game, waitlist when full
 - Comments on a game + the group chat
 - Post-game ratings & host reviews
-- Highlights (photo upload)
 - Profile & settings
 
 ## Good to know
 
-- **It's a real, live site** sharing one production database — testers see each other's games and can chat. That's intended for testing.
-- **Demo accounts** also exist if someone just wants a quick look without signing up: `1@demo.test` … `5@demo.test`, password `111111`.
-- **Feedback** they leave in the app's feedback form lands in your admin panel.
+- **It is a live shared site.** Everyone testing sees each other’s games and can chat.
+  That is intended.
+- **Its own database.** Nothing testers do reaches production, and nothing production
+  has shows up for them.
+- **No admin app on the preview.** There is no moderation queue and no feedback inbox
+  for anything they do there — collect feedback directly from them instead.
+- **Demo accounts** for a quick look without signing up: `1@demo.test` … `5@demo.test`,
+  password `111111` (or the one-tap demo buttons on the sign-in screen).
+- **Highlight posting and the marketplace are absent** from the preview by design.
 - Works on any modern phone or desktop browser. No download, nothing to approve.
 
-## When you're ready for the real app stores
+## When you are ready for the real app stores
 
-This link is for testing only. Getting Vybe into the Apple App Store / Google Play needs the native wrapper steps in **APP_STORE_PROMPTS.md** (Phases 4–6).
+This link is for testing only. Getting Coterie into the Apple App Store / Google Play
+needs the native wrapper steps in **APP_STORE_PROMPTS.md** (Phases 4–6).

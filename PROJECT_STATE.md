@@ -56,6 +56,7 @@ Full detail lives in `CLAUDE.md`. Ops/env vars in `OPERATIONS.md`. Deploy in `DE
 
 | Decision | Rationale | Date |
 |---|---|---|
+| **The main app goes private; the waitlist and the preview fork stay public** — `APP_PRIVATE=true` + `APP_ACCESS_PASSWORD` on the consumer Railway service put `/auth`, `/game/:id` and all of `/api` behind a password, redirect `/` to `/waitlist`, and leave `/waitlist`, `/privacy`, `POST /api/waitlist`, `/healthz` and static assets public. Testers move to **preview.coterie.com.de**; `SHARE_WITH_TESTERS.md` repointed. New `server/middleware/accessGate.js`; `/robots.txt` is now generated from the same flag so launch needs no separate step. | Aidan wants room to develop the app without strangers in it, while keeping the waitlist — the only live acquisition instrument, 400 signups — collecting. Password gate rather than taking the domain down, because he tests on the live PWA on a real phone and needs a way in. | 2026-08-08 |
 | **Slogan decided: "VOLLEYBALL FOR ALL"** — replaces "Find your players. Fill your games." everywhere it appeared as a slogan (waitlist header, Auth sign-in screen, browser tab title, PWA install name). Verified against Rec:lub's own site/listings same day: it is itself pickup-style (discover → request to join → auto-promoted waitlist, round robins/leagues/drop-ins), just spread across five sports rather than built for one — doc updated to say so rather than only "multi-sport." | Aidan's direct call, from the original design-brief tagline list. Shorter and more of a rallying cry than the 4 shortlisted candidates from 2026-07-29, which were chosen for cold-read clarity — a deliberate trade, made explicitly, not picked from that shortlist. | 2026-07-30 |
 | **Category is "pickup volleyball," stated plainly** — the business overview's At a Glance table read "Social sports / community" without literally saying pickup volleyball, even though the rest of the doc already did throughout. Now "Pickup volleyball (social sports / community)." | Aidan asked directly whether "pickup" is the right word; it was already the doc's substantive framing, just not in that one summary field. | 2026-07-30 |
 | **Tone of voice is strictly three adjectives: Convenient · Reliable · Inclusive** — replaces the earlier Open / Reassuring / Plain. Every user-facing string (UI, emails, notifications, store listings, marketing) must do at least one and contradict none; rules + do/don't table now live in `CLAUDE.md` under "Brand voice". | Aidan's own words, from the updated designer brief ("Jabez (App design)"). The three are also his answer to what people should think of the app, so voice and product attributes deliberately share two words. | 2026-07-30 |
@@ -125,6 +126,103 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Zero-downtime deploys — the UptimeRobot alerts diagnosed and fixed (2026-08-09):**
+- **Cause, from Railway's own logs, not a guess.** `app.listen()` was the last thing
+  `start()` did, after `initSchema()` and all seeding. On the 8 Aug deploy:
+  `00:35:28` container start → `00:35:48` demo accounts (+20s) → `00:37:08`
+  seedPastData's 360 player ratings (+80s) → `00:37:14` listening. **106 seconds with
+  the port shut**, during which Railway's edge has no upstream and returns 502. The
+  edge log for that window shows 8×502 including 4 on `HEAD /healthz`. There were
+  **13 deploys between 3 and 9 August** — that is the alert volume, one per deploy.
+- **Not a crash, not resources.** Memory peaks ~240 MB of 8 GB, CPU ~0%, one container
+  start in the current deployment, no error signatures in the logs.
+- **Fix 1 — listen first.** `start()` binds the port before any DB work. A module-level
+  `ready` flag (initialised `true` under `NODE_ENV=test`, since tests import the app
+  without calling `start()`) guards the gap: `/healthz` answers 503
+  `{status:"starting"}` and all `/api` routes answer 503 with `Retry-After: 30` until
+  schema + seeding finish.
+- **Fix 2 — `railway.json` gains `healthcheckPath: "/healthz"`, timeout 300s.** Railway
+  holds traffic on the previous deployment until the new one answers 200, then cuts
+  over. Deploys become zero-downtime; UptimeRobot sees nothing. Consequence to know: a
+  deploy that never goes healthy now **fails and leaves the old build running** rather
+  than replacing it with something broken.
+- **`server/admin-server.js` gained a real `/healthz`** (declared before the static
+  catch-all, which would otherwise have served `admin.html` — a 200 that means nothing).
+  Needed because that service may inherit this `railway.json`. It runs no migrations, so
+  it is ready as soon as it listens.
+- ⚠️ **Still open:** 106s of startup is `seedPastData` / `seedEngagement` rewriting the
+  same idempotent demo rows one query at a time on every boot. It now only delays
+  cutover instead of causing an outage, but it should be batched or skipped when the
+  data is already current.
+- ⚠️ **UptimeRobot config:** the edge log shows monitors on `GET /` (every 60s) and
+  `HEAD /healthz`. Both should point at `/healthz` — once the access gate ships, `GET /`
+  returns **302** to `/waitlist`.
+- Suite green: 140 passed, 1 skipped, 0 failed.
+
+**Pre-launch access gate — app private, waitlist public (2026-08-08):**
+- New `server/middleware/accessGate.js`, mounted in `server/index.js` just before the
+  maintenance-mode gate. Needs **both** `APP_PRIVATE=true` and a 12+ character
+  `APP_ACCESS_PASSWORD`; local dev / CI / the preview fork are untouched.
+- **Fails closed.** `APP_PRIVATE=true` with a missing or too-short password aborts
+  startup (`process.exit(1)`) instead of booting public — the same fail-closed rule,
+  and the same `NODE_ENV === "development" || "test"` opt-out, that `server/auth.js`
+  applies to `JWT_SECRET`. Gating on `NODE_ENV === "production"` would have been wrong
+  for the reason auth.js already documents: Railway does not guarantee it is set. The
+  cookie's `secure` flag uses the same opt-out for the same reason.
+- Public with the gate on: `/waitlist`, `/privacy`, `/healthz` (UptimeRobot),
+  `/unlock`, `/robots.txt`, `POST /api/waitlist`, `/api/config`, and any path with a
+  file extension (the waitlist is part of the same SPA bundle, so its JS/CSS must
+  load). `/` **redirects** to `/waitlist` rather than showing a password prompt.
+  Everything else → 401: the unlock page for navigations, JSON `{locked:true}` for
+  `/api`.
+- `POST /unlock` checks the password (constant-time) behind a dedicated
+  `unlockLimiter` (5 wrong guesses / 15 min per IP, added to
+  `middleware/rateLimiters.js` per that file's own convention — reusing `authLimiter`
+  would have pooled the counter with password-reset attempts, so a few forgotten
+  passwords could lock the team out of the site itself).
+- Cookie value is `<expiresAt>.<hmac>` where the HMAC is over
+  **password + expiry, keyed on `JWT_SECRET`** — never the password itself. The expiry
+  is inside the signed payload and checked server-side, so it holds even though a
+  browser controls its own cookie lifetime. Changing `APP_ACCESS_PASSWORD` or
+  `JWT_SECRET` revokes every issued cookie at once; that is the only revocation there
+  is, since it's one shared secret rather than per-person access.
+- Static allowlist is `/assets/*` plus **root-level** files with a known extension, not
+  "any path containing a dot" — a first pass used a loose regex that let crafted paths
+  like `/game/abc.js` through to the SPA fallback. Covered by a regression test.
+- `/robots.txt` is now a route generated from the same flag (restrictive while
+  private, `Allow: /` once live) so going live needs no separate checklist step.
+- Gated navigations send `Cache-Control: no-store` + `X-Robots-Tag: noindex` so the
+  PWA never caches the unlock page and crawlers don't index it. Existing workbox
+  config already helps here: `/api` is NetworkOnly and navigations are NetworkFirst,
+  so the gate takes effect immediately for anyone who already installed the PWA.
+- **Admin service unaffected** — separate Railway deploy, own entry point
+  (`admin-server.js`), never passes through this middleware.
+- **Frontend fix the gate made necessary:** `AuthContext`'s mount effect treats any
+  failed `/auth/me` as a stale token and calls `setToken(null)`. Under the gate that
+  401 means "site closed", so simply loading the public waitlist page would have
+  silently signed out every existing session — permanently, since the token is gone.
+  `ApiError` now carries a `locked` flag parsed from the server's `locked: true`, and
+  `AuthContext` skips the token clear when it is set. Sessions survive the private
+  period; they just can't reach the app until the site is unlocked.
+- Docs: `OPERATIONS.md` gains an env-var row pair and a "Pre-launch lockdown" section
+  (how to get in, how to revoke, how to go live); `.env.example` documents both vars;
+  `SHARE_WITH_TESTERS.md` rewritten to send testers to **preview.coterie.com.de** and
+  warn that coterie.com.de is now private — it previously pointed testers straight at
+  the app that is now locked, and still said "Vybe".
+- **Tests: `tests/accessGate.test.js`, 37 cases** — every public path, every gated
+  path, the `/` redirect, wrong/right password, cookie flags, a forged cookie, a
+  hand-extended expiry, an expired-but-validly-signed cookie, revocation by password
+  change, and the crafted-path regression above. Full suite green: **140 passed, 1
+  skipped, 0 failed**. Uses `vi.resetModules()` + a static import (a first draft used
+  a cache-busting `import(...?t=)`, which Vite rejects as a non-analysable dynamic
+  import — do not reintroduce it).
+- ⚠️ **Running the suite on a Mac needs two platform binaries** this `node_modules`
+  lacks (it was installed on Windows): `@rollup/rollup-darwin-arm64` and
+  `@esbuild/darwin-arm64`. They were fetched to a temp dir, unpacked into
+  `node_modules` for the run, and removed afterwards — `node_modules` is back exactly
+  as found and `package.json` / `package-lock.json` were never touched. On Windows
+  `npm test` just works.
 
 **Waitlist updated to 400 everywhere it is stated (2026-08-08):**
 - Aidan reported the waitlist is now **400** (was 200 on 2026-08-05, ~73 on 2026-07-22).

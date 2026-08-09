@@ -20,7 +20,15 @@ import {
   apiLimiter,
   contentLimiter,
   waitlistLimiter,
+  unlockLimiter,
 } from "./middleware/rateLimiters.js";
+import {
+  accessGate,
+  gateEnabled,
+  checkPassword,
+  grantAccess,
+  unlockPage,
+} from "./middleware/accessGate.js";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -115,6 +123,60 @@ app.use((req, res, next) => {
   next();
 });
 
+// Readiness. The port opens BEFORE schema init and seeding run (see start() at the
+// bottom of this file), so there is a window where the process is listening but the
+// database work is still in flight. `ready` marks the end of that window: /healthz
+// answers 503 until it flips, which is what railway.json's healthcheckPath waits
+// for, and what keeps the PREVIOUS deployment serving traffic until this one can
+// take over. Tests import the app without ever calling start(), so they begin ready.
+let ready = process.env.NODE_ENV === "test";
+
+// Startup guard. The port opens before schema init finishes, so for a moment the
+// process is listening with a database that may not have its tables yet.
+// healthcheckPath should stop Railway routing anything here that early, but this
+// makes it safe regardless — a request that slips through gets an honest "not
+// ready" instead of a schema error. Static files and the waitlist are unaffected.
+app.use("/api", (_req, res, next) => {
+  if (ready) return next();
+  res.set("Retry-After", "30");
+  return res.status(503).json({ error: "Coterie is starting up — try again in a moment." });
+});
+
+// --- Pre-launch access gate ----------------------------------------------
+// Off unless APP_PRIVATE=true and APP_ACCESS_PASSWORD are both set. When on,
+// the waitlist stays public and everything else needs the unlock cookie — see
+// middleware/accessGate.js for exactly what is exempt and why.
+if (gateEnabled) {
+  app.get("/unlock", (_req, res) => res.type("html").send(unlockPage()));
+  app.post(
+    "/unlock",
+    unlockLimiter, // 5 wrong guesses / 15 min per IP — a shared low-entropy
+    // secret, so brute-force protection matters more here than almost anywhere
+    express.urlencoded({ extended: false, limit: "1kb" }),
+    (req, res) => {
+      if (!checkPassword(req.body?.password))
+        return res
+          .status(401)
+          .type("html")
+          .send(unlockPage("That password didn't work. Try again."));
+      grantAccess(res);
+      res.redirect(302, "/");
+    }
+  );
+  app.use(accessGate);
+  console.log("[gate] APP_PRIVATE is on — only the waitlist is public");
+}
+
+// Crawler instructions. Served as a route rather than a static file so it
+// tracks the gate automatically: no launch-day checklist item to remember.
+app.get("/robots.txt", (_req, res) => {
+  res.type("text/plain").send(
+    gateEnabled
+      ? "User-agent: *\nAllow: /waitlist\nAllow: /privacy\nDisallow: /\n"
+      : "User-agent: *\nAllow: /\n"
+  );
+});
+
 // Maintenance mode: when the flag is on, block normal /api traffic with a 503
 // so the frontend can show a maintenance screen. Auth, config, admin routes,
 // and admins themselves stay open so an admin can sign in and turn it back off.
@@ -155,6 +217,11 @@ const BUILD_SHA = (process.env.RAILWAY_GIT_COMMIT_SHA || "dev").slice(0, 7);
 // Health check for uptime monitors — verifies the DB is reachable. Also returns
 // the running build's commit so a deploy can be confirmed live from outside.
 app.get("/healthz", async (_req, res) => {
+  if (!ready) {
+    // Deliberately 503, not 200: a green healthcheck here would tell Railway to
+    // cut traffic over to a container whose schema migration hasn't finished.
+    return res.status(503).json({ status: "starting", version: BUILD_SHA });
+  }
   try {
     await query("SELECT 1");
     res.json({ status: "ok", version: BUILD_SHA });
@@ -1247,6 +1314,18 @@ function injectMeta(html, base, title, desc) {
 // --- Startup --------------------------------------------------------------
 
 async function start() {
+  // Listen FIRST. Everything below this point is database work that took 106
+  // seconds on the 2026-08-08 deploy (20s demo accounts, 80s seedPastData's 360
+  // player ratings, 6s the rest). While the port is closed Railway's edge has no
+  // upstream and answers 502, so every single deploy used to be a ~2-minute
+  // outage and an UptimeRobot alert — 13 deploys between 3 and 9 August, 13
+  // alerts. Binding the port immediately means the container is reachable in
+  // milliseconds; /healthz reports "starting" (503) until the work below
+  // finishes, and railway.json's healthcheckPath makes Railway hold traffic on
+  // the OLD container until it flips to 200. Net effect: zero-downtime deploys.
+  await new Promise((resolve) => app.listen(PORT, resolve));
+  console.log(`[api] Coterie API listening on http://localhost:${PORT} (starting…)`);
+
   await initSchema();
   // Demo data (sample users, demo-password reset, fake past games/reviews) is
   // seeded unless SEED_DEMO is "false". Set SEED_DEMO=false in production to
@@ -1261,6 +1340,12 @@ async function start() {
     console.log("[seed] SEED_DEMO=false — skipping demo users and sample data");
   }
   await repo.promoteAdminsFromEnv();
+
+  // Schema and seed data are in place — start answering healthchecks green, which
+  // is the signal Railway waits for before routing traffic here and retiring the
+  // previous deployment.
+  ready = true;
+  console.log("[api] ready — healthcheck is green, serving traffic");
 
   // Periodic cleanup so transient tables (reset tokens, idempotency keys, read
   // notifications) don't grow without bound. Runs once on startup, then every
@@ -1293,9 +1378,6 @@ async function start() {
 
   if (!process.env.RESEND_API_KEY) console.warn("[email] RESEND_API_KEY not set — join confirmation emails will be skipped");
   if (!process.env.SENTRY_DSN) console.warn("[sentry] SENTRY_DSN not set — errors will only be logged to the console, not reported to Sentry");
-  app.listen(PORT, () => {
-    console.log(`[api] Coterie API listening on http://localhost:${PORT}`);
-  });
 }
 
 // Skip auto-start under test so the app can be imported without a DB or a

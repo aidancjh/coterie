@@ -22,9 +22,15 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** True when the pre-launch access gate blocked the request (server sends
+   *  `locked: true` with its 401). Distinguishes "the whole site is closed"
+   *  from "your token is bad" — they look identical from the status code alone,
+   *  and treating the first as the second silently signs people out. */
+  locked: boolean;
+  constructor(message: string, status: number, locked = false) {
     super(message);
     this.status = status;
+    this.locked = locked;
   }
 }
 
@@ -80,7 +86,9 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
           (data && typeof data === "object" && "error" in data
             ? String((data as { error: unknown }).error)
             : null) || `Request failed (${res.status})`;
-        throw new ApiError(message, res.status);
+        const locked =
+          !!data && typeof data === "object" && (data as { locked?: unknown }).locked === true;
+        throw new ApiError(message, res.status, locked);
       }
       return data as T;
     } catch (err) {

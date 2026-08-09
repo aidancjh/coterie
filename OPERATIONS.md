@@ -21,12 +21,96 @@ Practical guide for running Vybe in production (Railway + PostgreSQL).
 | `VITE_SENTRY_DSN` | frontend error reporting (safe to expose) | optional |
 | `VITE_CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | avatar + banner + highlight uploads (signed — see `POST /api/uploads/sign`) | optional |
 | `CLOUDINARY_CLOUD_NAME` | scopes which Cloudinary URLs the API accepts to your own account | optional |
+| `APP_PRIVATE` | `true` locks the app behind a password while the waitlist stays public — see *Pre-launch lockdown* below | optional |
+| `APP_ACCESS_PASSWORD` | the shared password for that gate — **12+ characters**. With `APP_PRIVATE=true` and this missing or too short, the server refuses to start rather than booting public | optional |
 
 > **Before a public / app-store launch:** set `SEED_DEMO=false` so the production
 > database has no publicly-known demo credentials or fake content. (Existing demo
 > rows from earlier boots must be removed manually via SQL if already seeded.)
 
 ---
+
+## Deploys and uptime (why UptimeRobot used to alert)
+
+Until 2026-08-09 `app.listen()` was the **last** thing `start()` did, after schema
+init and all demo seeding. Measured on the 8 August deploy:
+
+```
+00:35:28  Starting Container
+00:35:48  [seed] synced 29 demo accounts          +20s
+00:37:08  [seed] seedPastData: 360 player ratings +80s
+00:37:14  [api] listening                         +6s   = 106s with the port shut
+```
+
+With no process listening, Railway’s edge has no upstream and returns **502**, so
+every deploy was a ~2 minute outage. There were 13 deploys between 3 and 9 August;
+that is where the UptimeRobot alerts came from. It was never a crash — memory peaks
+at ~240 MB of 8 GB and CPU sits near zero.
+
+Two changes fix it:
+
+1. **The port opens first.** `start()` calls `app.listen()` before `initSchema()`, so
+   the container is reachable in milliseconds. A `ready` flag guards the gap:
+   `/healthz` returns **503 `{status:starting}`** and every `/api` route returns 503
+   until schema + seeding finish, then both go green.
+2. **`railway.json` sets `healthcheckPath: /healthz`** (timeout 300s). Railway now
+   keeps the PREVIOUS deployment serving traffic until the new one answers 200, then
+   cuts over. Deploys become zero-downtime and UptimeRobot sees nothing at all.
+
+A side effect worth knowing: **a deploy that never goes healthy now fails and leaves
+the old build running**, instead of replacing it with something broken. If a deploy
+hangs in deploying, check the logs for `[api] ready` — if it never appears, the
+database is unreachable and the healthcheck is doing its job.
+
+`server/admin-server.js` gained a real `/healthz` too. It had none, and its catch-all
+route would have answered the healthcheck with `admin.html` — a 200 that means
+nothing. That service does no migration work, so it is ready as soon as it listens.
+
+**Still slow, but no longer user-visible:** 106 seconds of startup is mostly
+`seedPastData` / `seedEngagement` rewriting the same idempotent demo rows one query
+at a time on every single boot. Worth batching, or skipping when the data is already
+current. It now only delays cutover rather than causing an outage.
+
+### UptimeRobot monitor settings
+
+The edge log shows two monitors: `GET /` every 60s and `HEAD /healthz`. Point both at
+**`/healthz`** — it is the only endpoint that actually checks the database, it stays
+public with the access gate on, and once the gate ships `GET /` answers **302** to
+`/waitlist` (fine if the monitor follows redirects, a false alarm if it does not).
+
+## Pre-launch lockdown (keeping the app private)
+
+Set **both** `APP_PRIVATE=true` and `APP_ACCESS_PASSWORD=<12+ characters>` on the
+**consumer** service in Railway. It redeploys automatically; the gate is live in ~2 min.
+
+| Path | With the gate on |
+|---|---|
+| `/` | redirects to `/waitlist` — a stranger sees a pre-launch page, not a locked door |
+| `/waitlist`, `/privacy` | public, unchanged |
+| `POST /api/waitlist` | public — signups and their utm attribution keep working |
+| `/healthz` | public, so UptimeRobot does not false-alarm |
+| static assets (`/assets/*`, icons, `sw.js`) | public — the waitlist is part of the same bundle |
+| everything else (`/auth`, `/game/:id`, the rest of `/api`) | password required |
+
+**To get in yourself:** open `https://coterie.com.de/unlock` and enter the password
+once. It sets a 90-day httpOnly cookie, so a PWA installed on your test phone stays
+unlocked and you are not re-prompted mid-session.
+
+**To revoke access for everyone** (the password leaked, a tester left): change
+`APP_ACCESS_PASSWORD`. Every cookie already issued stops working immediately, because
+the cookie is an HMAC over the password rather than a random session id. Rotating
+`JWT_SECRET` has the same effect. Cookies also carry their own signed expiry (90 days),
+checked server-side, so a copied cookie dies on schedule even if the browser is told to
+keep it forever. There is no per-person revocation — it is one shared secret; if you
+need named access, put the domain behind Cloudflare Access instead.
+
+**To go live:** delete `APP_PRIVATE` (or set it to `false`). `/robots.txt` opens up on
+its own — it is generated from the same flag, so there is no launch-day checklist item.
+
+**Not affected:** the admin service is a separate Railway deploy with its own entry
+point (`admin-server.js`), so it never passes through this gate. The preview fork
+(preview.coterie.com.de) is a different Railway project with its own database and is
+likewise untouched.
 
 ## Granting yourself admin
 
