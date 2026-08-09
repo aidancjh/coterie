@@ -41,7 +41,20 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         cleanupOutdatedCaches: true,
-        navigateFallbackDenylist: [/^\/api/],
+        // Paths the SERVER renders, which must never be answered from the
+        // precached index.html. Workbox registers this NavigationRoute before
+        // the runtimeCaching rules below and matches in registration order, so
+        // anything not denylisted here is served the SPA shell — the network is
+        // never consulted. /unlock is the one that bites: the SPA has no such
+        // route, so it falls through to the catch-all inside RequireAuth and
+        // redirects a logged-out visitor to /auth, making the access-gate
+        // password page unreachable in any browser that has the worker.
+        navigateFallbackDenylist: [
+          /^\/api/,
+          /^\/unlock/,
+          /^\/healthz/,
+          /^\/robots\.txt$/,
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === "navigate",

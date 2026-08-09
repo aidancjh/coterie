@@ -127,6 +127,39 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
+**Service worker was swallowing /unlock — gate page unreachable (2026-08-09):**
+- **Symptom:** going to `coterie.com.de/unlock` in a real browser landed on `/auth`
+  instead of the password page, so there was no way into the app. `curl /unlock`
+  returned the correct page all along — the break was client-side only, in any browser
+  that had ever loaded the app.
+- **Cause:** workbox registers its `NavigationRoute` (from `navigateFallback`) **before**
+  the `runtimeCaching` rules and matches in registration order, so every navigation not
+  in `navigateFallbackDenylist` is answered from the precached `index.html` and never
+  reaches the server. The denylist was only `[/^\/api/]`. `/unlock` is server-rendered
+  and has no client route, so the SPA fell through to `<Route path="*">` — which sits
+  **inside** the `RequireAuth` group in `App.tsx` — and redirected logged-out visitors
+  to `/auth`.
+- **Fix 1:** `navigateFallbackDenylist` now also covers `/unlock`, `/healthz` and
+  `/robots.txt`. Any future server-rendered path must be added here or it will be
+  shadowed the same way.
+- **Fix 2:** `src/lib/api.ts` sends the user to `/unlock` (full page load, not the
+  client router) on any `locked: true` response, unless they are on `/waitlist`,
+  `/privacy` or `/unlock`. Without it a cached shell renders fine and every action dies
+  in a "Coterie isn't open yet" modal with no way forward. It also gives the installed
+  PWA a route to the unlock page, which otherwise has no address bar to type one into.
+  The public-path exclusion matters: a waitlist visitor with a stale token triggers
+  `/auth/me`, and bouncing them to a password prompt would be a terrible first
+  impression.
+- **Regression guard:** `tests/accessGate.test.js` asserts the denylist still contains
+  the server-rendered paths. 38 tests in that file, suite green.
+- ⚠️ **Pre-existing, not changed:** `<Route path="*">` living inside `RequireAuth` means
+  *any* unknown URL redirects a logged-out visitor to `/auth` instead of showing
+  NotFound. Left alone as out of scope, but it is why this failed the way it did.
+- ⚠️ **Stale workers lag.** `registerSW` uses `immediate` + `skipWaiting` +
+  `clientsClaim` and checks on load, focus and every 60s, so clients pick this up within
+  about a minute online — but until they do, the old denylist still applies. A private
+  window (no worker registered) always reaches `/unlock`.
+
 **Zero-downtime deploys — the UptimeRobot alerts diagnosed and fixed (2026-08-09):**
 - **Cause, from Railway's own logs, not a guess.** `app.listen()` was the last thing
   `start()` did, after `initSchema()` and all seeding. On the 8 Aug deploy:

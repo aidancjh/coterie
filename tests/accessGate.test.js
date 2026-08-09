@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import express from "express";
 import request from "supertest";
+import fs from "node:fs";
 
 // 12+ chars, or the gate refuses to enable (MIN_PASSWORD_LENGTH).
 const PASSWORD = "test-access-password-not-for-production";
@@ -192,6 +193,22 @@ describe("accessGate — cookie forgery and expiry", () => {
     expect(gate.gateEnabled).toBe(true);
     const res = await request(app).get("/api/games").set("Cookie", `coterie_access=${past}.${mac}`);
     expect(res.status).toBe(401);
+  });
+
+  it("keeps /unlock out of the service worker's navigation fallback", () => {
+    // Regression guard, 2026-08-09. Workbox registers its NavigationRoute before
+    // the runtimeCaching rules and matches in registration order, so any path not
+    // in navigateFallbackDenylist is answered from the precached index.html and
+    // never reaches the server. /unlock has no client route, so the SPA fell
+    // through to the catch-all inside RequireAuth and redirected logged-out
+    // visitors to /auth — making the gate's password page unreachable in any
+    // browser that had ever loaded the app. Server-rendered paths must stay here.
+    const cfg = fs.readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
+    const denylist = cfg.match(/navigateFallbackDenylist:\s*\[([\s\S]*?)\]/)?.[1];
+    expect(denylist, "navigateFallbackDenylist not found in vite.config.ts").toBeTruthy();
+    for (const path of ["api", "unlock", "healthz", "robots"]) {
+      expect(denylist, `${path} must stay denylisted`).toContain(path);
+    }
   });
 
   it("stops honouring cookies once the password changes", async () => {
