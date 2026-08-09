@@ -1,0 +1,21 @@
+# Normalise line endings so the repo reads the same on Windows and macOS.
+#
+# Without this, opening the working copy on a different OS rewrote every text
+# file's line endings, and `git status` showed ~94 files modified with a
+# whitespace-only diff (27,951 insertions, 27,951 deletions on 2026-08-08) —
+# enough to bury a real change completely. Store LF in git, always.
+* text=auto eol=lf
+
+# Binary assets: never touch these.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.mov  binary
+*.mp4  binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
