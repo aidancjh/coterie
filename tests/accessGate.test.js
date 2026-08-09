@@ -79,6 +79,9 @@ describe("accessGate — what stays public", () => {
     "/unlock",
     "/api/waitlist",
     "/api/config",
+    // The stale-service-worker escape hatch: workbox denylists /api, so this
+    // reaches the network even when GET /unlock is answered from an old cache.
+    "/api/unlock",
     "/assets/index-a1b2c3.js",
     "/assets/index-a1b2c3.css",
     "/sw.js",

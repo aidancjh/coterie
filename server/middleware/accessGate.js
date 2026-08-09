@@ -100,7 +100,10 @@ const PUBLIC_EXACT = new Set([
   "/robots.txt",
 ]);
 
-const PUBLIC_PREFIX = ["/api/waitlist", "/api/config", "/assets/"];
+// /api/unlock is the same password page as /unlock, reachable through a stale
+// service worker (workbox's navigation route denylists /api, so it always hits
+// the network). Public for the same reason /unlock is — it IS the door.
+const PUBLIC_PREFIX = ["/api/waitlist", "/api/config", "/api/unlock", "/assets/"];
 
 // Root-level static files the PWA and the waitlist need: /sw.js, /registerSW.js,
 // /manifest.webmanifest, /favicon.svg, /pwa-192x192.png, /apple-touch-icon.png,

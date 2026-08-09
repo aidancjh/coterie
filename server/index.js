@@ -147,7 +147,17 @@ app.use("/api", (_req, res, next) => {
 // the waitlist stays public and everything else needs the unlock cookie — see
 // middleware/accessGate.js for exactly what is exempt and why.
 if (gateEnabled) {
-  app.get("/unlock", (_req, res) => res.type("html").send(unlockPage()));
+  // Two paths, one page. A browser still running a service worker built before
+  // /unlock was denylisted answers GET /unlock from its own cache and never asks
+  // the server, so the password page is unreachable there until the worker
+  // updates. Workbox's navigation route denylists /api in every version we have
+  // ever shipped, so /api/unlock always reaches the network — it is the escape
+  // hatch for any stale client, including an installed PWA.
+  // POST needs no alias: workbox's NavigationRoute only handles GET, so a form
+  // submission goes to the network regardless of how old the worker is.
+  app.get(["/unlock", "/api/unlock"], (_req, res) =>
+    res.type("html").send(unlockPage())
+  );
   app.post(
     "/unlock",
     unlockLimiter, // 5 wrong guesses / 15 min per IP — a shared low-entropy
