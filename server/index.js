@@ -1173,6 +1173,16 @@ function buildGCalUrl(game, appUrl) {
   return `https://calendar.google.com/calendar/render?${params}`;
 }
 
+// --- Short link for the waitlist problems survey ---------------------------
+// The survey itself lives on Tally. Linking to tally.so directly from email has
+// two costs: Google shows an "are you sure" redirect notice for shared form
+// hosts, and the link domain doesn't match the domain that signed the message,
+// which spam filters weigh. Sending people via our own domain fixes both, and
+// means the destination can be changed later without reissuing the email.
+// Declared before the static handler so it wins over the SPA catch-all.
+const SURVEY_URL = "https://tally.so/r/Ekr18N";
+app.get("/survey", (_req, res) => res.redirect(302, SURVEY_URL));
+
 // --- Serve the built frontend in production -------------------------------
 // In local dev the React app is served by Vite (port 5173) and this block is
 // skipped because there's no dist/ folder. In production `npm run build`
