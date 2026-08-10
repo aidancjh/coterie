@@ -15,6 +15,8 @@
  *   node scripts/send-waitlist-survey.mjs              # dry run, sends nothing
  *   node scripts/send-waitlist-survey.mjs --send       # actually sends
  *   node scripts/send-waitlist-survey.mjs --send -n 25 # smaller batch
+ *   node scripts/send-waitlist-survey.mjs --test a@b.com --plain
+ *   node scripts/send-waitlist-survey.mjs --send -n 20 --plain
  *
  * Requires in .env: DATABASE_URL, RESEND_API_KEY, MAIL_FROM (verified domain).
  */
@@ -57,6 +59,8 @@ const batchSize = nFlag !== -1 ? Number(args[nFlag + 1]) : DEFAULT_BATCH;
 // waitlist would receive, and does NOT touch the send log or the database.
 const testFlag = args.indexOf("--test");
 const testTo = testFlag !== -1 ? args[testFlag + 1] : null;
+// --plain sends the text-only variant instead of the HTML one.
+const plain = args.includes("--plain");
 
 const { DATABASE_URL, DATABASE_SSL, RESEND_API_KEY, MAIL_FROM } = process.env;
 
@@ -133,7 +137,44 @@ You are getting this because you joined the Coterie waitlist at coterie.com.de.
 Coterie, Singapore. Unsubscribe: ${UNSUBSCRIBE_URL}
 `;
 
-async function send(email) {
+// A plain-text-only version. Two reasons it exists:
+//
+// 1. Gmail rejected the HTML version with "similar to messages that were
+//    identified as spam in the past" — a content-fingerprint match against the
+//    near-identical copies sent while we were debugging. A short text-only mail
+//    with different wording is a different fingerprint entirely.
+// 2. Text-only mail from a young domain is filtered far less aggressively than
+//    an image-and-button layout, because the layout is what bulk senders use.
+//
+// Deliberately reworded rather than just stripped, so it doesn't match the HTML
+// version's fingerprint either.
+const PLAIN_SUBJECT = "A question about volleyball in Singapore";
+const PLAIN_TEXT = `Hi,
+
+I'm Aidan. You put your email on the Coterie waitlist a while back, and I
+haven't written since, so this is overdue.
+
+Short version: the app is finished. Post a game, players claim spots, and the
+waitlist refills a spot automatically when someone drops out. It opens soon.
+
+Before it does I'd like to know what actually goes wrong for you when you try
+to get a game together here. What's irritating, what's missing, what you wish
+existed. There's a short form, about three minutes:
+
+${SURVEY_URL}
+
+If you'd rather just reply to this email with a sentence or two, that works
+just as well and I read every one.
+
+Thanks,
+Aidan
+Founder, Coterie
+
+You're getting this because you joined the waitlist at coterie.com.de.
+To stop hearing from me, reply with "unsubscribe" and I'll remove you.
+`;
+
+async function send(email, plain = false) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -144,9 +185,9 @@ async function send(email) {
       from: MAIL_FROM,
       to: [email],
       reply_to: REPLY_TO,
-      subject: SUBJECT,
-      html,
-      text: TEXT,
+      subject: plain ? PLAIN_SUBJECT : SUBJECT,
+      ...(plain ? {} : { html }),
+      text: plain ? PLAIN_TEXT : TEXT,
       // Gmail and Yahoo's bulk-sender rules weight these heavily, and their
       // absence is treated as a spam signal on its own. List-Unsubscribe-Post
       // is what puts Gmail's native "Unsubscribe" button next to the sender
@@ -170,10 +211,11 @@ if (testTo) {
   console.log(`  to        ${testTo}`);
   console.log(`  from      ${MAIL_FROM}`);
   console.log(`  reply-to  ${REPLY_TO}`);
-  console.log(`  subject   ${SUBJECT}`);
+  console.log(`  subject   ${plain ? PLAIN_SUBJECT : SUBJECT}`);
+  console.log(`  variant   ${plain ? "PLAIN TEXT (no html, no image)" : "HTML"}`);
   console.log(`  (send log and database untouched)\n`);
   try {
-    console.log(`  ✓ sent — resend id ${await send(testTo)}\n`);
+    console.log(`  ✓ sent — resend id ${await send(testTo, plain)}\n`);
   } catch (err) {
     console.log(`  ✗ failed — ${err.message}\n`);
     process.exit(1);
@@ -209,6 +251,7 @@ console.log(`
   from                ${MAIL_FROM}
   reply-to            ${REPLY_TO}
   log                 ${LOG_FILE}
+  variant             ${plain ? "PLAIN TEXT (no html, no image)" : "HTML"}
   mode                ${live ? "LIVE — will send" : "DRY RUN — sends nothing"}
 `);
 
@@ -229,7 +272,7 @@ const failed = [];
 
 for (const [i, email] of batch.entries()) {
   try {
-    const id = await send(email);
+    const id = await send(email, plain);
     appendLog(email, id); // logged immediately, before the next send
     ok++;
     console.log(`  ${String(i + 1).padStart(3)}/${batch.length}  ✓ ${email}`);
