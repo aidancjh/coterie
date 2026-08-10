@@ -1173,15 +1173,60 @@ function buildGCalUrl(game, appUrl) {
   return `https://calendar.google.com/calendar/render?${params}`;
 }
 
-// --- Short link for the waitlist problems survey ---------------------------
-// The survey itself lives on Tally. Linking to tally.so directly from email has
-// two costs: Google shows an "are you sure" redirect notice for shared form
-// hosts, and the link domain doesn't match the domain that signed the message,
-// which spam filters weigh. Sending people via our own domain fixes both, and
-// means the destination can be changed later without reissuing the email.
+// --- The waitlist problems survey ------------------------------------------
+// The form itself lives on Tally, but /survey serves a real page rather than
+// redirecting to it. A redirect was the first attempt: it fixed link alignment
+// (the link domain matching the domain that DKIM-signed the email) and removed
+// Google's "are you sure" interstitial for shared form hosts. But a young domain
+// bouncing visitors straight to a third-party form is shaped like link cloaking,
+// which spam filters treat as a signal in its own right.
+//
+// Serving the page instead gives a link that resolves to real content on our own
+// domain, with the form embedded. No redirect, no third-party link in the email.
 // Declared before the static handler so it wins over the SPA catch-all.
-const SURVEY_URL = "https://tally.so/r/Ekr18N";
-app.get("/survey", (_req, res) => res.redirect(302, SURVEY_URL));
+const SURVEY_FORM_URL = "https://tally.so/r/Ekr18N";
+app.get("/survey", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What's hard about volleyball in Singapore? — Coterie</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --brand:#d92632; --ink:#0f172a; --muted:#64748b; }
+  * { box-sizing:border-box }
+  body { margin:0; background:#f8fafc; color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif }
+  header { background:#fff; border-bottom:1px solid #e2e8f0; padding:16px 20px; text-align:center }
+  .brand { font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+    font-size:13px; color:var(--brand) }
+  main { max-width:760px; margin:0 auto; padding:28px 20px 56px }
+  h1 { font-size:26px; line-height:1.25; margin:0 0 12px }
+  p { margin:0 0 14px; color:#334155 }
+  .meta { color:var(--muted); font-size:14px }
+  .frame { margin-top:24px; background:#fff; border:1px solid #e2e8f0;
+    border-radius:14px; overflow:hidden }
+  iframe { display:block; width:100%; height:1100px; border:0 }
+  .fallback { margin-top:20px; font-size:14px; color:var(--muted) }
+  .fallback a { color:var(--brand) }
+</style></head>
+<body>
+  <header><span class="brand">Coterie</span></header>
+  <main>
+    <h1>What&rsquo;s hard about getting a volleyball game together?</h1>
+    <p>I&rsquo;m Aidan. I&rsquo;m building Coterie so hosting and joining pickup
+      volleyball in Singapore takes a minute instead of an evening. Before it
+      opens, I want to know what actually goes wrong for you now.</p>
+    <p class="meta">Every level welcome, whether you&rsquo;ve played for ten
+      years or turned up once. About three minutes, and I read every response.</p>
+    <div class="frame">
+      <iframe src="${SURVEY_FORM_URL}?transparentBackground=1"
+        title="Coterie volleyball survey" loading="lazy"></iframe>
+    </div>
+    <p class="fallback">Form not loading?
+      <a href="${SURVEY_FORM_URL}" rel="noopener">Open it directly</a>.</p>
+  </main>
+</body></html>`);
+});
 
 // --- Serve the built frontend in production -------------------------------
 // In local dev the React app is served by Vite (port 5173) and this block is

@@ -17,6 +17,7 @@
  *   node scripts/send-waitlist-survey.mjs --send -n 25 # smaller batch
  *   node scripts/send-waitlist-survey.mjs --test a@b.com --plain
  *   node scripts/send-waitlist-survey.mjs --send -n 20 --plain
+ *   node scripts/send-waitlist-survey.mjs --test a@b.com --reply-only
  *
  * Requires in .env: DATABASE_URL, RESEND_API_KEY, MAIL_FROM (verified domain).
  */
@@ -60,7 +61,16 @@ const batchSize = nFlag !== -1 ? Number(args[nFlag + 1]) : DEFAULT_BATCH;
 const testFlag = args.indexOf("--test");
 const testTo = testFlag !== -1 ? args[testFlag + 1] : null;
 // --plain sends the text-only variant instead of the HTML one.
-const plain = args.includes("--plain");
+const variant = args.includes("--reply-only")
+  ? "reply"
+  : args.includes("--plain")
+    ? "plain"
+    : "html";
+const VARIANT_LABEL = {
+  html: "HTML (image + button)",
+  plain: "PLAIN TEXT (no html, no image)",
+  reply: "REPLY-ONLY (no links at all)",
+}[variant];
 
 const { DATABASE_URL, DATABASE_SSL, RESEND_API_KEY, MAIL_FROM } = process.env;
 
@@ -174,7 +184,39 @@ You're getting this because you joined the waitlist at coterie.com.de.
 To stop hearing from me, reply with "unsubscribe" and I'll remove you.
 `;
 
-async function send(email, plain = false) {
+// A reply-only version: zero links, zero HTML, zero images. The ask is a reply,
+// not a click.
+//
+// Why this exists: two structurally different emails (HTML with image+button,
+// and a reworded plain-text one) both landed in Gmail spam while SPF, DKIM and
+// DMARC all passed with full alignment. So the message was never the problem —
+// the sending domain has no reputation yet. A mail with no links at all gives
+// filters almost nothing to score, and a reply is the strongest positive signal
+// a young domain can earn, because it proves a human wanted the mail.
+//
+// Trade-off: no survey responses from this one. It buys reputation, and the
+// answers arrive as prose in the inbox instead of rows in Tally.
+const REPLY_SUBJECT = "Quick question about volleyball in Singapore";
+const REPLY_TEXT = `Hi,
+
+I'm Aidan. You joined the Coterie waitlist a while back and I have not written
+since, which is my fault.
+
+I'm building a way to host and join pickup volleyball here without chasing
+twelve people through group chats. It's finished and opens soon.
+
+Before it does, could you tell me one thing that annoys you about getting a
+game together in Singapore? Whatever comes to mind first is genuinely useful,
+and one sentence is plenty. Just hit reply.
+
+Thanks,
+Aidan
+Founder, Coterie
+
+You joined the waitlist at coterie.com.de. Reply "stop" and I won't write again.
+`;
+
+async function send(email, variant = "html") {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -185,18 +227,27 @@ async function send(email, plain = false) {
       from: MAIL_FROM,
       to: [email],
       reply_to: REPLY_TO,
-      subject: plain ? PLAIN_SUBJECT : SUBJECT,
-      ...(plain ? {} : { html }),
-      text: plain ? PLAIN_TEXT : TEXT,
+      subject:
+        variant === "reply" ? REPLY_SUBJECT
+        : variant === "plain" ? PLAIN_SUBJECT
+        : SUBJECT,
+      ...(variant === "html" ? { html } : {}),
+      text:
+        variant === "reply" ? REPLY_TEXT
+        : variant === "plain" ? PLAIN_TEXT
+        : TEXT,
       // Gmail and Yahoo's bulk-sender rules weight these heavily, and their
       // absence is treated as a spam signal on its own. List-Unsubscribe-Post
       // is what puts Gmail's native "Unsubscribe" button next to the sender
       // name — which is the single clearest "this is legitimate bulk mail, not
       // a stranger" signal available to us.
-      headers: {
-        "List-Unsubscribe": `<${UNSUBSCRIBE_URL}>, <mailto:${REPLY_TO}?subject=unsubscribe>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
+      headers:
+        variant === "reply"
+          ? { "List-Unsubscribe": `<mailto:${REPLY_TO}?subject=unsubscribe>` }
+          : {
+              "List-Unsubscribe": `<${UNSUBSCRIBE_URL}>, <mailto:${REPLY_TO}?subject=unsubscribe>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -211,11 +262,10 @@ if (testTo) {
   console.log(`  to        ${testTo}`);
   console.log(`  from      ${MAIL_FROM}`);
   console.log(`  reply-to  ${REPLY_TO}`);
-  console.log(`  subject   ${plain ? PLAIN_SUBJECT : SUBJECT}`);
-  console.log(`  variant   ${plain ? "PLAIN TEXT (no html, no image)" : "HTML"}`);
+  console.log(`  variant   ${VARIANT_LABEL}`);
   console.log(`  (send log and database untouched)\n`);
   try {
-    console.log(`  ✓ sent — resend id ${await send(testTo, plain)}\n`);
+    console.log(`  ✓ sent — resend id ${await send(testTo, variant)}\n`);
   } catch (err) {
     console.log(`  ✗ failed — ${err.message}\n`);
     process.exit(1);
@@ -251,7 +301,7 @@ console.log(`
   from                ${MAIL_FROM}
   reply-to            ${REPLY_TO}
   log                 ${LOG_FILE}
-  variant             ${plain ? "PLAIN TEXT (no html, no image)" : "HTML"}
+  variant             ${VARIANT_LABEL}
   mode                ${live ? "LIVE — will send" : "DRY RUN — sends nothing"}
 `);
 
@@ -272,7 +322,7 @@ const failed = [];
 
 for (const [i, email] of batch.entries()) {
   try {
-    const id = await send(email, plain);
+    const id = await send(email, variant);
     appendLog(email, id); // logged immediately, before the next send
     ok++;
     console.log(`  ${String(i + 1).padStart(3)}/${batch.length}  ✓ ${email}`);
