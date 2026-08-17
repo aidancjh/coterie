@@ -10,7 +10,7 @@ import ReviewModal from "../components/ReviewModal";
 import { GameCardSkeleton } from "../components/Skeleton";
 import Modal from "../components/Modal";
 import { SearchIcon, XIcon } from "../components/icons";
-import { REGIONS, gameRegion } from "../lib/courts";
+import { REGIONS, gameRegions } from "../lib/courts";
 
 // ---------------------------------------------------------------------------
 // Filter options (mirror the create-game form)
@@ -198,9 +198,14 @@ export default function BrowseGames() {
     const f = filters;
     return games
       .filter((g) => !isPast(g.date))
-      // gameRegion falls back to reading the region out of the venue text, so
-      // games posted before the venue picker existed still filter correctly.
-      .filter((g) => (regionFilterIsOff(f.regions) ? true : f.regions.includes(gameRegion(g))))
+      // gameRegions falls back to reading the region out of the venue text, so
+      // games posted before the venue picker existed still filter correctly. A
+      // boundary venue has two regions and matches either.
+      .filter((g) =>
+        regionFilterIsOff(f.regions)
+          ? true
+          : gameRegions(g).some((r) => f.regions.includes(r))
+      )
       .filter((g) => (f.types.length > 0 ? f.types.includes(g.type) : true))
       .filter((g) => (f.skills.length > 0 ? f.skills.includes(g.skill) : true))
       .filter((g) =>
@@ -236,7 +241,7 @@ export default function BrowseGames() {
           g.area.toLowerCase().includes(q) ||
           // So typing "east" finds East-region games, not just ones with
           // "east" in the venue name.
-          gameRegion(g).toLowerCase().includes(q)
+          gameRegions(g).some((r) => r.toLowerCase().includes(q))
         );
       })
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));

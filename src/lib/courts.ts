@@ -19,10 +19,13 @@
  * type and asks them to pick the region by hand. Adding a court is a one-line
  * change to COURTS below.
  *
- * REGION CONVENTION — five buckets, no north-east. Singapore's north-east
- * (Sengkang, Punggol, Hougang, Serangoon, Ang Mo Kio) is folded into North,
- * which is how players group it in practice: one interviewee described their
- * usual courts as "mostly woodlands amk area".
+ * REGION CONVENTION — five buckets, and a court may sit in TWO of them.
+ * Singapore has no clean five-way split: Hougang and Sengkang are "north-east",
+ * Kallang is central but everyone on the east side treats it as theirs, Dover
+ * and Kent Ridge are west but also south. Rather than pick a side and be wrong
+ * for half our players, a boundary court belongs to both regions and turns up
+ * under either filter. The first entry in `regions` is the primary one — it is
+ * what gets saved on the game and shown first on the card.
  */
 
 export type Region = "North" | "Central" | "East" | "West" | "South";
@@ -36,10 +39,21 @@ export type CourtKind = "Indoor" | "Beach" | "Outdoor";
 export interface Court {
   /** Canonical name. This is what gets saved as the game's location. */
   name: string;
-  region: Region;
+  /**
+   * One or two regions this venue can be found under, primary first. Two means
+   * it sits on a boundary and should appear under either filter.
+   */
+  regions: Region[];
   /** Neighbourhood, saved as the game's `area` and shown on the card. */
   area: string;
   kind: CourtKind;
+  /**
+   * How many volleyball courts the venue has, where we could verify it — used
+   * to cap the "which court?" picker. Left unset when sources disagree or say
+   * nothing; the picker then offers a generous range instead of inventing a
+   * number. Never guess this: a wrong cap stops a host naming their real court.
+   */
+  courts?: number;
   /**
    * Extra spellings to match on: acronyms players actually say, old names, and
    * the "sports hall" spelling of every "sport hall" (ActiveSG drops the s,
@@ -50,110 +64,117 @@ export interface Court {
 
 export const COURTS: Court[] = [
   // --- ActiveSG sport halls -------------------------------------------------
-  { name: "Bedok Sport Hall", region: "East", area: "Bedok", kind: "Indoor",
+  { name: "Bedok Sport Hall", regions: ["East"], area: "Bedok", kind: "Indoor", courts: 4,
     aliases: ["bedok sports hall", "heartbeat@bedok", "heartbeat bedok"] },
-  { name: "Bishan Sport Hall", region: "Central", area: "Bishan", kind: "Indoor",
+  { name: "Bishan Sport Hall", regions: ["Central", "North"], area: "Bishan", kind: "Indoor",
     aliases: ["bishan sports hall"] },
-  { name: "Bukit Canberra Sport Hall", region: "North", area: "Sembawang", kind: "Indoor",
+  { name: "Bukit Canberra Sport Hall", regions: ["North"], area: "Sembawang", kind: "Indoor",
     aliases: ["bukit canberra sports hall", "canberra"] },
-  { name: "Bukit Gombak Sport Hall", region: "West", area: "Bukit Batok", kind: "Indoor",
+  { name: "Bukit Gombak Sport Hall", regions: ["West"], area: "Bukit Batok", kind: "Indoor",
     aliases: ["bukit gombak sports hall", "gombak"] },
-  { name: "Choa Chu Kang Sport Hall", region: "West", area: "Choa Chu Kang", kind: "Indoor",
+  { name: "Choa Chu Kang Sport Hall", regions: ["West"], area: "Choa Chu Kang", kind: "Indoor",
     aliases: ["choa chu kang sports hall", "cck"] },
-  { name: "Clementi Sport Hall", region: "West", area: "Clementi", kind: "Indoor",
+  { name: "Clementi Sport Hall", regions: ["West"], area: "Clementi", kind: "Indoor", courts: 2,
     aliases: ["clementi sports hall"] },
-  { name: "Delta Sport Hall", region: "South", area: "Tiong Bahru", kind: "Indoor",
+  { name: "Delta Sport Hall", regions: ["South", "Central"], area: "Tiong Bahru", kind: "Indoor",
     aliases: ["delta sports hall", "delta sport centre"] },
-  { name: "Hougang Sport Hall", region: "North", area: "Hougang", kind: "Indoor",
+  { name: "Hougang Sport Hall", regions: ["North", "East"], area: "Hougang", kind: "Indoor",
     aliases: ["hougang sports hall"] },
-  { name: "Jurong East Sport Hall", region: "West", area: "Jurong East", kind: "Indoor",
+  { name: "Jurong East Sport Hall", regions: ["West"], area: "Jurong East", kind: "Indoor",
     aliases: ["jurong east sports hall"] },
-  { name: "Jurong West Sport Hall", region: "West", area: "Jurong West", kind: "Indoor",
+  { name: "Jurong West Sport Hall", regions: ["West"], area: "Jurong West", kind: "Indoor",
     aliases: ["jurong west sports hall"] },
-  { name: "MOE (Evans) Sport Hall", region: "Central", area: "Evans Road", kind: "Indoor",
+  { name: "MOE (Evans) Sport Hall", regions: ["Central"], area: "Evans Road", kind: "Indoor", courts: 3,
     aliases: ["moe evans", "evans", "evans road", "moe evans sports hall"] },
-  { name: "Pasir Ris Sport Hall", region: "East", area: "Pasir Ris", kind: "Indoor",
+  { name: "Pasir Ris Sport Hall", regions: ["East"], area: "Pasir Ris", kind: "Indoor",
     aliases: ["pasir ris sports hall"] },
-  { name: "Sengkang Sport Hall", region: "North", area: "Sengkang", kind: "Indoor",
+  { name: "Sengkang Sport Hall", regions: ["North", "East"], area: "Sengkang", kind: "Indoor", courts: 6,
     aliases: ["sengkang sports hall"] },
-  { name: "Serangoon Sport Hall", region: "North", area: "Serangoon", kind: "Indoor",
+  { name: "Serangoon Sport Hall", regions: ["North", "East"], area: "Serangoon", kind: "Indoor",
     aliases: ["serangoon sports hall"] },
-  { name: "Our Tampines Hub Sport Hall", region: "East", area: "Tampines", kind: "Indoor",
+  { name: "Our Tampines Hub Sport Hall", regions: ["East"], area: "Tampines", kind: "Indoor",
     aliases: ["oth", "our tampines hub", "tampines sport hall", "tampines sports hall"] },
-  { name: "Toa Payoh Sport Hall", region: "Central", area: "Toa Payoh", kind: "Indoor",
+  { name: "Toa Payoh Sport Hall", regions: ["Central"], area: "Toa Payoh", kind: "Indoor",
     aliases: ["toa payoh sports hall"] },
-  { name: "Woodlands Sport Hall", region: "North", area: "Woodlands", kind: "Indoor",
+  { name: "Woodlands Sport Hall", regions: ["North"], area: "Woodlands", kind: "Indoor",
     aliases: ["woodlands sports hall"] },
-  { name: "Yio Chu Kang Sport Hall", region: "North", area: "Ang Mo Kio", kind: "Indoor",
+  { name: "Yio Chu Kang Sport Hall", regions: ["North", "East"], area: "Ang Mo Kio", kind: "Indoor", courts: 2,
     aliases: ["yck", "yio chu kang sports hall"] },
-  { name: "Yishun Sport Hall", region: "North", area: "Yishun", kind: "Indoor",
+  { name: "Yishun Sport Hall", regions: ["North"], area: "Yishun", kind: "Indoor",
     aliases: ["yishun sports hall"] },
-  { name: "Zhenghua Sport Hall", region: "West", area: "Bukit Panjang", kind: "Indoor",
+  { name: "Zhenghua Sport Hall", regions: ["West", "North"], area: "Bukit Panjang", kind: "Indoor",
     aliases: ["zhenghua sports hall"] },
-  { name: "ActiveSG Courts @ Farrer Park", region: "Central", area: "Farrer Park", kind: "Outdoor",
+  { name: "ActiveSG Courts @ Farrer Park", regions: ["Central"], area: "Farrer Park", kind: "Outdoor",
     aliases: ["farrer park", "activesg farrer park"] },
 
-  // --- Premium / private indoor --------------------------------------------
-  { name: "OCBC Arena", region: "Central", area: "Kallang", kind: "Indoor",
-    aliases: ["ocbc", "ocbc arena hall 1", "ocbc arena hall 2", "ocbc arena hall 3"] },
-  { name: "The Kallang Indoor Courts", region: "Central", area: "Kallang", kind: "Indoor",
-    aliases: ["the kallang", "sports hub indoor", "singapore sports hub", "kallang indoor"] },
-  { name: "Singapore Badminton Hall", region: "Central", area: "Geylang", kind: "Indoor",
+  // --- Premium indoor ------------------------------------------------------
+  // One building, many names: the Sports Hub was rebranded "The Kallang", and
+  // its indoor volleyball sits in the OCBC Arena (Hall 3). Kept as a single
+  // entry with every name as an alias, rather than three near-duplicates a host
+  // would have to choose between. Court count omitted on purpose — sources say
+  // both "2 indoor volleyball courts" and "seven indoor courts", so the picker
+  // offers the open range instead of enforcing a number we can't stand behind.
+  { name: "OCBC Arena (The Kallang)", regions: ["Central", "East"], area: "Kallang", kind: "Indoor",
+    aliases: ["ocbc", "ocbc arena", "the kallang", "kallang indoor", "sports hub indoor",
+              "singapore sports hub", "ocbc arena hall 3"] },
+  { name: "Singapore Badminton Hall", regions: ["Central", "East"], area: "Geylang", kind: "Indoor",
     aliases: ["sbh", "guillemard", "badminton hall"] },
 
   // --- Sand ----------------------------------------------------------------
-  { name: "Yio Chu Kang Beach Volleyball Courts", region: "North", area: "Ang Mo Kio", kind: "Beach",
+  { name: "Yio Chu Kang Beach Volleyball Courts", regions: ["North", "East"], area: "Ang Mo Kio", kind: "Beach", courts: 3,
     aliases: ["yck beach", "yck sand", "yio chu kang sand"] },
-  { name: "Sports Hub Beach Volleyball Courts", region: "Central", area: "Kallang", kind: "Beach",
+  { name: "Sports Hub Beach Volleyball Courts", regions: ["Central", "East"], area: "Kallang", kind: "Beach", courts: 2,
     aliases: ["kallang beach", "kallang sand", "kallang volleyball centre", "sports hub beach"] },
-  { name: "Palawan Beach", region: "South", area: "Sentosa", kind: "Beach",
+  { name: "Palawan Beach", regions: ["South"], area: "Sentosa", kind: "Beach",
     aliases: ["palawan", "sentosa palawan"] },
-  { name: "Siloso Beach", region: "South", area: "Sentosa", kind: "Beach",
+  { name: "Siloso Beach", regions: ["South"], area: "Sentosa", kind: "Beach",
     aliases: ["siloso", "sentosa siloso"] },
-  { name: "Tanjong Beach", region: "South", area: "Sentosa", kind: "Beach",
+  { name: "Tanjong Beach", regions: ["South"], area: "Sentosa", kind: "Beach",
     aliases: ["tanjong", "sentosa tanjong"] },
-  { name: "East Coast Park Beach Volleyball Courts", region: "East", area: "East Coast", kind: "Beach",
+  { name: "East Coast Park Beach Volleyball Courts", regions: ["East", "South"], area: "East Coast", kind: "Beach",
     aliases: ["ecp", "east coast park", "east coast beach"] },
 
   // --- Outdoor hard courts -------------------------------------------------
-  { name: "MOE (Evans) Outdoor Court", region: "Central", area: "Evans Road", kind: "Outdoor",
+  { name: "MOE (Evans) Outdoor Court", regions: ["Central"], area: "Evans Road", kind: "Outdoor",
     aliases: ["evans outdoor", "moe evans outdoor"] },
-  { name: "Senja-Cashew CC Outdoor Courts", region: "West", area: "Bukit Panjang", kind: "Outdoor",
+  { name: "Senja-Cashew CC Outdoor Courts", regions: ["West", "North"], area: "Bukit Panjang", kind: "Outdoor", courts: 2,
     aliases: ["senja cashew", "senja", "cashew cc"] },
 
   // --- Campus halls (rented to the public; availability varies) ------------
-  { name: "NTU Sports Hall", region: "West", area: "Nanyang", kind: "Indoor",
+  { name: "NTU Sports Hall", regions: ["West"], area: "Nanyang", kind: "Indoor",
     aliases: ["ntu", "nanyang technological university", "ntu mpsh"] },
-  { name: "NUS Sports Hall (MPSH)", region: "West", area: "Kent Ridge", kind: "Indoor",
+  { name: "NUS Sports Hall (MPSH)", regions: ["West", "South"], area: "Kent Ridge", kind: "Indoor",
     aliases: ["nus", "mpsh", "kent ridge", "national university of singapore"] },
-  { name: "SMU Sports Hall", region: "Central", area: "Bras Basah", kind: "Indoor",
+  { name: "SMU Sports Hall", regions: ["Central"], area: "Bras Basah", kind: "Indoor",
     aliases: ["smu", "singapore management university"] },
-  { name: "SUTD Sports Hall", region: "East", area: "Upper Changi", kind: "Indoor",
+  { name: "SUTD Sports Hall", regions: ["East"], area: "Upper Changi", kind: "Indoor",
     aliases: ["sutd", "singapore university of technology and design"] },
-  { name: "Republic Polytechnic Sports Hall", region: "North", area: "Woodlands", kind: "Indoor",
+  { name: "Republic Polytechnic Sports Hall", regions: ["North"], area: "Woodlands", kind: "Indoor",
     aliases: ["republic poly", "rp"] },
-  { name: "Nanyang Polytechnic Sports Hall", region: "North", area: "Ang Mo Kio", kind: "Indoor",
+  { name: "Nanyang Polytechnic Sports Hall", regions: ["North", "East"], area: "Ang Mo Kio", kind: "Indoor",
     aliases: ["nanyang poly", "nyp"] },
-  { name: "Ngee Ann Polytechnic Sports Hall", region: "West", area: "Clementi", kind: "Indoor",
+  { name: "Ngee Ann Polytechnic Sports Hall", regions: ["West"], area: "Clementi", kind: "Indoor",
     aliases: ["ngee ann poly", "np"] },
-  { name: "Singapore Polytechnic Sports Hall", region: "West", area: "Dover", kind: "Indoor",
+  { name: "Singapore Polytechnic Sports Hall", regions: ["West", "South"], area: "Dover", kind: "Indoor",
     aliases: ["singapore poly", "sp hall"] },
-  { name: "Temasek Polytechnic Sports Hall", region: "East", area: "Tampines", kind: "Indoor",
+  { name: "Temasek Polytechnic Sports Hall", regions: ["East"], area: "Tampines", kind: "Indoor",
     aliases: ["temasek poly"] },
 
   // --- School halls on the ActiveSG volleyball listing ---------------------
-  { name: "Ang Mo Kio Secondary School Hall", region: "North", area: "Ang Mo Kio", kind: "Indoor",
+  { name: "Ang Mo Kio Secondary School Hall", regions: ["North", "East"], area: "Ang Mo Kio", kind: "Indoor",
     aliases: ["amk sec", "ang mo kio sec"] },
-  { name: "Bartley Secondary School Hall", region: "Central", area: "Bartley", kind: "Indoor",
+  { name: "Bartley Secondary School Hall", regions: ["Central", "East"], area: "Bartley", kind: "Indoor",
     aliases: ["bartley sec"] },
-  { name: "Fairfield Methodist Secondary School Hall", region: "West", area: "Dover", kind: "Indoor",
+  { name: "Fairfield Methodist Secondary School Hall", regions: ["West", "South"], area: "Dover", kind: "Indoor",
     aliases: ["fairfield methodist", "fairfield sec"] },
-  { name: "Hougang Primary School Hall", region: "North", area: "Hougang", kind: "Indoor",
+  { name: "Hougang Primary School Hall", regions: ["North", "East"], area: "Hougang", kind: "Indoor",
     aliases: ["hougang pri"] },
-  { name: "Jurong West Secondary School Hall", region: "West", area: "Jurong West", kind: "Indoor",
+  { name: "Jurong West Secondary School Hall", regions: ["West"], area: "Jurong West", kind: "Indoor",
     aliases: ["jurong west sec"] },
-  { name: "Kuo Chuan Presbyterian Secondary School Hall", region: "Central", area: "Bishan", kind: "Indoor",
+  { name: "Kuo Chuan Presbyterian Secondary School Hall", regions: ["Central", "North"], area: "Bishan", kind: "Indoor",
     aliases: ["kuo chuan", "kcpss"] },
+  { name: "Woodlands Primary School Hall", regions: ["North"], area: "Woodlands", kind: "Indoor",
+    aliases: ["woodlands pri"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -318,34 +339,100 @@ export function courtByName(name: string): Court | null {
 }
 
 /**
- * Best-effort region for a game saved before the picker existed, or by a host
- * who typed a custom venue. Matches the venue text against court names, then
- * against area names, then gives up — an unknown region is honest, and Browse
- * treats it as "not in any region" rather than guessing wrong.
+ * The court a venue string refers to, ignoring any ", Court N" the host added.
+ * Longest name first, so "Yio Chu Kang Beach Volleyball Courts" wins over a
+ * bare "Yio Chu Kang Sport Hall" when both could match the text.
  */
-export function regionForLocation(location: string, area?: string): Region | "" {
-  const direct = isExactCourt(location);
-  if (direct) return direct.region;
+function courtFromText(location: string, area?: string): Court | null {
+  const direct = parseVenue(location).court;
+  if (direct) return direct;
 
   const hay = norm(`${location} ${area ?? ""}`);
-  if (!hay) return "";
+  if (!hay) return null;
 
-  // Longest court name first, so "Yio Chu Kang Beach Volleyball Courts" wins
-  // over a bare "Yio Chu Kang Sport Hall" when both could match the text.
   const byLength = [...COURTS].sort((a, b) => b.name.length - a.name.length);
   for (const c of byLength) {
-    if (hay.includes(norm(c.name))) return c.region;
-    if ((c.aliases ?? []).some((a) => a.length >= 4 && hay.includes(norm(a)))) return c.region;
+    if (hay.includes(norm(c.name))) return c;
+    if ((c.aliases ?? []).some((a) => a.length >= 4 && hay.includes(norm(a)))) return c;
   }
   for (const c of byLength) {
-    if (hay.includes(norm(c.area))) return c.region;
+    if (hay.includes(norm(c.area))) return c;
   }
-  return "";
+  return null;
 }
 
-/** The region to filter a game by: what the host saved, else derived from text. */
-export function gameRegion(game: { region?: string; location: string; area?: string }): Region | "" {
-  const saved = (game.region ?? "") as Region | "";
-  if (saved && (REGIONS as string[]).includes(saved)) return saved;
-  return regionForLocation(game.location, game.area);
+/**
+ * Best-effort regions for a game saved before the picker existed, or by a host
+ * who typed a custom venue. Returns [] rather than guessing when nothing
+ * matches — an unknown region is honest, and Browse treats it as "not in any
+ * region" instead of putting the game somewhere wrong.
+ */
+export function regionsForLocation(location: string, area?: string): Region[] {
+  return courtFromText(location, area)?.regions ?? [];
+}
+
+/**
+ * Every region a game should be findable under. A listed court's own regions
+ * win, because where a building is, is a fact — and they may be two. A custom
+ * venue falls back to whatever region the host picked.
+ */
+export function gameRegions(game: { region?: string; location: string; area?: string }): Region[] {
+  const fromCourt = regionsForLocation(game.location, game.area);
+  if (fromCourt.length) return fromCourt;
+  const saved = (game.region ?? "") as Region;
+  return (REGIONS as string[]).includes(saved) ? [saved] : [];
+}
+
+/** The one region to show on a card: the court's primary, else what was saved. */
+export function primaryRegion(game: { region?: string; location: string; area?: string }): Region | "" {
+  return gameRegions(game)[0] ?? "";
+}
+
+// ---------------------------------------------------------------------------
+// Court numbers
+//
+// A venue often has several courts and hosts have always written the number
+// into the venue line by hand — the old placeholder was literally
+// "e.g. Bedok Sports Hall, Court 2". So the number lives in the same string,
+// as a ", Court N" suffix, rather than needing a new database column.
+// ---------------------------------------------------------------------------
+
+/** "Bedok Sport Hall" + "2" -> "Bedok Sport Hall, Court 2". */
+export function formatVenue(courtName: string, courtLabel: string): string {
+  const label = courtLabel.trim();
+  return label ? `${courtName}, Court ${label}` : courtName;
+}
+
+/**
+ * Split a saved venue back into the court and its number, so editing a game
+ * reopens the picker in the state the host left it.
+ *
+ * The suffix only counts when what precedes it is a court we actually know.
+ * That keeps a custom venue that happens to end in ", Court 3" intact instead
+ * of silently splitting it into a base we can't resolve.
+ */
+export function parseVenue(location: string): {
+  /** Venue without the court suffix. */
+  base: string;
+  /** Court number/name as the host wrote it, or "". */
+  courtLabel: string;
+  /** The matching listed court, or null for a custom venue. */
+  court: Court | null;
+} {
+  const m = location.match(/^(.*?),\s*Court\s+(.+)$/i);
+  if (m) {
+    const base = m[1].trim();
+    const court = isExactCourt(base);
+    if (court) return { base, courtLabel: m[2].trim(), court };
+  }
+  return { base: location, courtLabel: "", court: isExactCourt(location) };
+}
+
+/**
+ * How many courts to offer in the picker. Uses the verified count where we have
+ * one; otherwise 8, which covers every venue we know of and still lets a host
+ * name a court at a venue whose size we never confirmed.
+ */
+export function courtCountFor(court: Court): number {
+  return court.courts ?? 8;
 }

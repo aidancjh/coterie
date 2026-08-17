@@ -449,10 +449,12 @@ export default function GameForm({
           onChange={(location) => set("location", location)}
           onPick={(court) => {
             // One pick fills all three: what players read, what search matches,
-            // and what the region filter on Browse uses.
+            // and what the region filter on Browse uses. A boundary court has
+            // two regions — we store the primary, and Browse still matches the
+            // game under either, since it reads them off the court itself.
             set("location", court.name);
             set("area", court.area);
-            set("region", court.region);
+            set("region", court.regions[0]);
           }}
         />
       </FieldGroup>

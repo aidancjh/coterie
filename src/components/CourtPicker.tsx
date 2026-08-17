@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchCourts, suggestCourt, isExactCourt, type Court } from "../lib/courts";
+import {
+  searchCourts,
+  suggestCourt,
+  parseVenue,
+  formatVenue,
+  courtCountFor,
+  type Court,
+} from "../lib/courts";
 import { MapPinIcon, SearchIcon } from "./icons";
 
 /**
@@ -35,13 +42,15 @@ export default function CourtPicker({
   const wrapRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const matches = useMemo(() => searchCourts(value, 8), [value]);
-  const exact = useMemo(() => isExactCourt(value), [value]);
-  const suggestion = useMemo(() => (open ? null : suggestCourt(value)), [value, open]);
+  // The saved value carries the court number as a ", Court N" suffix. The
+  // search box only ever shows the venue; the number has its own chips.
+  const { base, courtLabel, court: exact } = useMemo(() => parseVenue(value), [value]);
+  const matches = useMemo(() => searchCourts(base, 8), [base]);
+  const suggestion = useMemo(() => (open ? null : suggestCourt(base)), [base, open]);
 
   // Reset the highlight whenever the list itself changes, so Enter can never
   // select a court that scrolled out from under the highlight.
-  useEffect(() => setActive(0), [value]);
+  useEffect(() => setActive(0), [base]);
 
   // Close on any click outside. A blur handler would fire before the click
   // on a list item registered, so the pick would be lost.
@@ -64,9 +73,17 @@ export default function CourtPicker({
     listRef.current?.children[active]?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
 
+  // Changing venue drops any court number — court 5 at one hall is not court 5
+  // at another, and a stale number is worse than none.
   const pick = (court: Court) => {
     onPick(court);
     setOpen(false);
+  };
+
+  /** Toggle a court number on the currently selected venue. */
+  const setCourtNumber = (n: number) => {
+    if (!exact) return;
+    onChange(formatVenue(exact.name, courtLabel === String(n) ? "" : String(n)));
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -98,8 +115,9 @@ export default function CourtPicker({
         <SearchIcon className="h-4 w-4 shrink-0 text-slate-400" />
         <input
           ref={inputRef}
-          value={value}
+          value={base}
           onChange={(e) => {
+            // Typing a new venue clears any court number along with it.
             onChange(e.target.value);
             setOpen(true);
           }}
@@ -116,12 +134,58 @@ export default function CourtPicker({
       </div>
 
       {/* Confirmation that the venue is one we know, so the host can trust the
-          region was filled in for them. */}
+          region was filled in for them. Both regions are named when the venue
+          sits on a boundary, because it will show up under either filter. */}
       {!open && exact && (
         <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400">
           <MapPinIcon className="h-3 w-3 shrink-0" />
-          {exact.area} · {exact.region} · {exact.kind}
+          {exact.area} · {exact.regions.join(" / ")} · {exact.kind}
         </p>
+      )}
+
+      {/* Which court, for the venues that have more than one. Optional: plenty
+          of hosts book the whole hall, and some won't know their court until
+          they arrive. */}
+      {!open && exact && (
+        <div className="mt-2.5">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Court number
+            </span>
+            {courtLabel && (
+              <button
+                type="button"
+                onClick={() => onChange(exact.name)}
+                className="text-[11px] font-semibold text-brand"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: courtCountFor(exact) }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setCourtNumber(n)}
+                className={`h-8 min-w-8 rounded-lg px-2 text-xs font-semibold transition active:scale-95 ${
+                  courtLabel === String(n)
+                    ? "bg-brand text-white"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-slate-400">
+            {courtLabel
+              ? `Players will see “${formatVenue(exact.name, courtLabel)}”.`
+              : exact.courts
+              ? `${exact.courts} courts here. Optional — skip it if you've booked the whole hall.`
+              : "Optional — skip it if you've booked the whole hall."}
+          </p>
+        </div>
       )}
 
       {/* Typo rescue. Shown only when the list is closed — while it's open the
@@ -140,7 +204,7 @@ export default function CourtPicker({
         </p>
       )}
 
-      {!open && !exact && !suggestion && value.trim() && (
+      {!open && !exact && !suggestion && base.trim() && (
         <p className="mt-1.5 text-[11px] text-slate-400">
           Not a listed court — pick the region below so players can find it.
         </p>
@@ -168,7 +232,7 @@ export default function CourtPicker({
                     </span>
                   </span>
                   <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-                    {c.region}
+                    {c.regions.join(" / ")}
                   </span>
                 </button>
               </li>
@@ -178,17 +242,17 @@ export default function CourtPicker({
           {/* Keeping a custom venue is a first-class option, not a dead end —
               plenty of games happen at condos, churches and school halls we
               haven't listed. */}
-          {value.trim() && !exact && (
+          {base.trim() && !exact && (
             <button
               type="button"
               onMouseDown={(e) => { e.preventDefault(); setOpen(false); }}
               className="block w-full border-t border-slate-800 px-3 py-2.5 text-left text-xs text-slate-400 transition hover:bg-slate-800"
             >
-              Use “<span className="font-semibold text-slate-200">{value.trim()}</span>” as typed
+              Use “<span className="font-semibold text-slate-200">{base.trim()}</span>” as typed
             </button>
           )}
 
-          {matches.length === 0 && !value.trim() && (
+          {matches.length === 0 && !base.trim() && (
             <p className="px-3 py-3 text-xs text-slate-400">Start typing to find a court.</p>
           )}
         </div>

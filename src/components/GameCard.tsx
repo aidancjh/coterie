@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { Game } from "../types";
 import { spotsLeft } from "../services/gamesService";
 import { formatTimeRange, isPast } from "../lib/format";
-import { gameRegion } from "../lib/courts";
+import { gameRegions } from "../lib/courts";
 import { CostBadge, SkillBadge, SpotsBadge, TypeBadge } from "./Badges";
 import { ClockIcon, MapPinIcon } from "./icons";
 
@@ -83,10 +83,11 @@ export default function GameCard({
             <span className="shrink-0 text-slate-400">· {game.area}</span>
           )}
           {/* Region, so a player scanning the list can tell at a glance whether
-              a venue they don't recognise is anywhere near them. */}
-          {gameRegion(game) && (
+              a venue they don't recognise is anywhere near them. Boundary
+              venues show both, matching the filters they turn up under. */}
+          {gameRegions(game).length > 0 && (
             <span className="shrink-0 rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
-              {gameRegion(game)}
+              {gameRegions(game).join("/")}
             </span>
           )}
         </div>
