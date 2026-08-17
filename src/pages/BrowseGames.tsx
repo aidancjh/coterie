@@ -10,6 +10,7 @@ import ReviewModal from "../components/ReviewModal";
 import { GameCardSkeleton } from "../components/Skeleton";
 import Modal from "../components/Modal";
 import { SearchIcon, XIcon } from "../components/icons";
+import { REGIONS, gameRegion } from "../lib/courts";
 
 // ---------------------------------------------------------------------------
 // Filter options (mirror the create-game form)
@@ -28,6 +29,13 @@ const netLabels: Record<string, string> = {
 const positionOptions = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero"];
 
 interface Filters {
+  /**
+   * Regions to include. Unlike every other list here, this one starts FULL —
+   * all five selected — because "no regions" would be an empty result set and
+   * a region is something every player already has an opinion about. All five
+   * selected therefore means the same as no filter at all.
+   */
+  regions: string[];
   types: string[];
   skills: string[];
   netHeights: string[];
@@ -38,6 +46,7 @@ interface Filters {
 }
 
 const DEFAULT_FILTERS: Filters = {
+  regions: [...REGIONS],
   types: [],
   skills: [],
   netHeights: [],
@@ -46,6 +55,21 @@ const DEFAULT_FILTERS: Filters = {
   maxTime: 1440,
   minOpenSpots: 0,
 };
+
+/**
+ * All five selected is "everywhere", i.e. not filtering. Deliberately does NOT
+ * treat an empty selection as "everywhere": if a player has switched every
+ * region off, showing them the whole island contradicts the chips they can see.
+ * Zero regions means zero games, and the empty state says so.
+ */
+const regionFilterIsOff = (regions: string[]) => regions.length >= REGIONS.length;
+
+/** "North and East", "North, East and West" — for the filter summary line. */
+function listRegions(regions: string[]): string {
+  const inOrder = REGIONS.filter((r) => regions.includes(r));
+  if (inOrder.length <= 1) return inOrder[0] ?? "no regions";
+  return `${inOrder.slice(0, -1).join(", ")} and ${inOrder[inOrder.length - 1]}`;
+}
 
 function toMinutes(t: string): number {
   const [h, m] = t.split(":").map(Number);
@@ -64,6 +88,7 @@ function fmtClock(min: number): string {
 
 function activeFilterCount(f: Filters): number {
   return (
+    (regionFilterIsOff(f.regions) ? 0 : 1) +
     (f.types.length > 0 ? 1 : 0) +
     (f.skills.length > 0 ? 1 : 0) +
     (f.netHeights.length > 0 ? 1 : 0) +
@@ -78,6 +103,9 @@ function activeFilterCount(f: Filters): number {
 function filtersToParams(f: Filters, search: string): URLSearchParams {
   const p = new URLSearchParams();
   if (search.trim()) p.set("q", search.trim());
+  // Only written when it's actually narrowing something, so a default view
+  // still produces a clean shareable URL.
+  if (!regionFilterIsOff(f.regions)) p.set("region", f.regions.join(","));
   if (f.types.length) p.set("type", f.types.join(","));
   if (f.netHeights.length) p.set("net", f.netHeights.join(","));
   if (f.skills.length) p.set("skills", f.skills.join(","));
@@ -100,9 +128,14 @@ function paramsToState(p: URLSearchParams): { filters: Filters; search: string }
     minTime = Math.min(Math.max(a, 0), 1440);
     maxTime = Math.min(Math.max(b, 0), 1440);
   }
+  // An absent or unrecognisable region param means "everywhere", which is the
+  // default. Unknown values are dropped rather than kept, so a stale link can
+  // never filter on a region that no longer exists.
+  const regionParam = list("region").filter((r) => (REGIONS as string[]).includes(r));
   return {
     search: p.get("q") || "",
     filters: {
+      regions: regionParam.length ? regionParam : [...REGIONS],
       types: list("type"),
       skills: list("skills"),
       netHeights: list("net"),
@@ -165,6 +198,9 @@ export default function BrowseGames() {
     const f = filters;
     return games
       .filter((g) => !isPast(g.date))
+      // gameRegion falls back to reading the region out of the venue text, so
+      // games posted before the venue picker existed still filter correctly.
+      .filter((g) => (regionFilterIsOff(f.regions) ? true : f.regions.includes(gameRegion(g))))
       .filter((g) => (f.types.length > 0 ? f.types.includes(g.type) : true))
       .filter((g) => (f.skills.length > 0 ? f.skills.includes(g.skill) : true))
       .filter((g) =>
@@ -197,7 +233,10 @@ export default function BrowseGames() {
         return (
           g.title.toLowerCase().includes(q) ||
           g.location.toLowerCase().includes(q) ||
-          g.area.toLowerCase().includes(q)
+          g.area.toLowerCase().includes(q) ||
+          // So typing "east" finds East-region games, not just ones with
+          // "east" in the venue name.
+          gameRegion(g).toLowerCase().includes(q)
         );
       })
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
@@ -475,7 +514,11 @@ function FilterModal({
     >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          <p id="filters-modal-title" className="text-base font-bold text-white">Filters</p>
+          {/* text-slate-100, not text-white: this panel sits inside a bg-black/50
+              backdrop, and index.css turns any .text-white nested in a bg-black*
+              element real white — which made this title invisible on the white
+              panel. slate-100 is dark ink in the inverted scale. */}
+          <p id="filters-modal-title" className="text-base font-bold text-slate-100">Filters</p>
           <button
             onClick={onClose}
             aria-label="Close filters"
@@ -487,6 +530,46 @@ function FilterModal({
 
         {/* Body */}
         <div className="flex-1 divide-y divide-slate-800 overflow-y-auto">
+          {/* Section 0 — Where. First, because it's the question players ask
+              first: is this game somewhere I can actually get to? */}
+          <div className="px-4 py-4">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Region</p>
+              {!regionFilterIsOff(f.regions) && (
+                <button
+                  onClick={() => set({ regions: [...REGIONS] })}
+                  className="text-[11px] font-semibold text-brand"
+                >
+                  Select all
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {REGIONS.map((r) => (
+                <Chip
+                  key={r}
+                  active={f.regions.includes(r)}
+                  onClick={() =>
+                    set({
+                      regions: f.regions.includes(r)
+                        ? f.regions.filter((x) => x !== r)
+                        : [...f.regions, r],
+                    })
+                  }
+                >
+                  {r}
+                </Chip>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              {regionFilterIsOff(f.regions)
+                ? "Showing games across the whole island."
+                : f.regions.length === 0
+                ? "Pick at least one region to see any games."
+                : `Showing games in ${listRegions(f.regions)} only.`}
+            </p>
+          </div>
+
           {/* Section 1 — Game details */}
           <div className="px-4 py-4">
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">

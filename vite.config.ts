@@ -68,8 +68,12 @@ export default defineConfig({
     // frontend can just fetch("/api/...") regardless of the API port.
     proxy: {
       "/api": {
-        target: "http://localhost:4000",
+        // Defaults to the local Express server. Set DEV_API_TARGET to point a
+        // local frontend at a deployed API instead — useful for checking UI
+        // against real data when there's no local database.
+        target: process.env.DEV_API_TARGET || "http://localhost:4000",
         changeOrigin: true,
+        secure: true,
       },
     },
   },

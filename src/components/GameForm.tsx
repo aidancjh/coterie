@@ -1,7 +1,9 @@
-import { useRef, useState } from "react";
+import { forwardRef, useRef, useState } from "react";
 import type { GameGender, GameType, NewGameInput, SkillLevel } from "../types";
 import { todayISO } from "../lib/format";
+import { REGIONS } from "../lib/courts";
 import ErrorModal from "./ErrorModal";
+import CourtPicker from "./CourtPicker";
 
 const types: GameType[] = ["Indoor", "Beach", "Grass"];
 const skills: SkillLevel[] = ["All Levels", "Low Beginner", "High Beginner", "Low Intermediate", "High Intermediate", "Advanced"];
@@ -23,6 +25,7 @@ const FIELD_LABEL: Record<string, string> = {
   title: "title",
   date: "date",
   location: "location",
+  region: "region",
   players: "player counts",
   costPerPerson: "cost per person",
   endTime: "end time",
@@ -119,6 +122,7 @@ export default function GameForm({
   const titleRef = useRef<HTMLInputElement>(null);
   const dateRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLInputElement>(null);
+  const regionRef = useRef<HTMLDivElement>(null);
   const playersRef = useRef<HTMLDivElement>(null);
   const costRef = useRef<HTMLInputElement>(null);
   const endTimeRef = useRef<HTMLInputElement>(null);
@@ -126,6 +130,7 @@ export default function GameForm({
     title: titleRef,
     date: dateRef,
     location: locationRef,
+    region: regionRef,
     players: playersRef,
     costPerPerson: costRef,
     endTime: endTimeRef,
@@ -173,6 +178,10 @@ export default function GameForm({
       !form.title.trim() && "title",
       !form.date && "date",
       !form.location.trim() && "location",
+      // Without a region the game is invisible to anyone filtering by area.
+      // Choosing a listed court fills this in, so it's only ever a real
+      // question for a venue we don't know.
+      !form.region && "region",
       !costText.trim() && "costPerPerson",
       !form.endTime && "endTime",
     ].filter((f): f is string => !!f);
@@ -429,15 +438,41 @@ export default function GameForm({
         </div>
       </div>
 
-      <Field label="Venue / location">
-        <input
-          ref={locationRef}
+      {/* Not a <Field>: that wraps its children in a <label>, and a click on a
+          button inside a label gets forwarded to the labelled input — which
+          would fight the dropdown's own pick handling. */}
+      <FieldGroup label="Venue / location">
+        <CourtPicker
           value={form.location}
-          onChange={(e) => set("location", e.target.value)}
-          placeholder="e.g. Bedok Sports Hall, Court 2"
-          className={fieldCls(invalidFields.has("location"))}
+          inputRef={locationRef}
+          invalid={invalidFields.has("location")}
+          onChange={(location) => set("location", location)}
+          onPick={(court) => {
+            // One pick fills all three: what players read, what search matches,
+            // and what the region filter on Browse uses.
+            set("location", court.name);
+            set("area", court.area);
+            set("region", court.region);
+          }}
         />
-      </Field>
+      </FieldGroup>
+
+      {/* Region is what powers the North/South/East/West/Central filter on
+          Browse. Picking a listed court sets it automatically; this row exists
+          so a custom venue still ends up findable. */}
+      <FieldGroup label="Region" ref={regionRef}>
+        <Segmented
+          options={REGIONS}
+          value={form.region}
+          onChange={(v) => set("region", v)}
+          invalid={invalidFields.has("region")}
+        />
+        <p className="mt-1.5 text-[11px] text-slate-400">
+          {form.region
+            ? "Players filtering for this region will see your game."
+            : "Pick a region so players filtering by area can find this game."}
+        </p>
+      </FieldGroup>
 
       <Field label="Notes (optional)">
         <textarea
@@ -501,17 +536,40 @@ function Field({
   );
 }
 
+/**
+ * Same look as Field, but without the wrapping <label>. Use it whenever the
+ * control is a group of buttons or has its own popup — a label would forward
+ * stray clicks to whatever it thinks its input is.
+ */
+const FieldGroup = forwardRef<HTMLDivElement, { label: string; children: React.ReactNode }>(
+  function FieldGroup({ label, children }, ref) {
+    return (
+      <div ref={ref}>
+        <span className="mb-1.5 block text-sm font-medium text-slate-200">{label}</span>
+        {children}
+      </div>
+    );
+  }
+);
+
 function Segmented({
   options,
   value,
   onChange,
+  invalid,
 }: {
-  options: string[];
+  options: readonly string[];
   value: string;
   onChange: (v: string) => void;
+  /** Rings the whole group in red when it failed validation. */
+  invalid?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div
+      className={`flex flex-wrap gap-1.5 ${
+        invalid ? "rounded-xl border border-rose-500 p-1.5" : ""
+      }`}
+    >
       {options.map((o) => (
         <button
           key={o}

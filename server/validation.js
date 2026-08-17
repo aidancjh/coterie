@@ -72,7 +72,10 @@ export const GENDERS = ["Men", "Women", "Mixed", "Open"];
 export const NET_HEIGHTS = ["Men's (2.43m)", "Women's (2.24m)", "Mixed (2.35m)", "Recreational (2.35m)", "Venue Standard"];
 export const POSITIONS = ["Setter", "Outside Hitter", "Middle Blocker", "Opposite", "Libero", "Defensive Specialist", "Any"];
 export const ROTATION_TYPES = ["Standard", "No Rotation", "King of the Court", "Round Robin"];
-export const REGIONS = ["North", "South", "East", "West"];
+// Five buckets, matching src/lib/courts.ts — Central was added 2026-08-17 when
+// the venue picker started tagging every court with a region. Keep the two
+// lists in step: a region the server rejects is silently stored as "".
+export const REGIONS = ["North", "Central", "East", "West", "South"];
 
 // Matches validGameInput's original behavior: an optional field is only checked
 // against the allowed list when truthy (undefined/null/"" pass through), since
