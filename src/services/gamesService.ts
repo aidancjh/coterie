@@ -9,7 +9,6 @@
  * there is no realtime channel yet — components re-fetch on notify().
  */
 import type {
-  AppNotification,
   ChatSummary,
   Comment,
   Game,
@@ -199,29 +198,6 @@ export async function setMemberPaid(
   );
   notify();
   return game;
-}
-
-// --- Notifications --------------------------------------------------------
-
-export async function getNotifications(): Promise<{
-  items: AppNotification[];
-  unreadCount: number;
-}> {
-  return api.get<{ items: AppNotification[]; unreadCount: number }>(
-    "/notifications"
-  );
-}
-
-export async function markNotificationsRead(): Promise<void> {
-  await api.post<void>("/notifications/read-all");
-}
-
-export async function markNotificationRead(
-  id: string
-): Promise<{ ok: boolean; unreadCount: number }> {
-  return api.post<{ ok: boolean; unreadCount: number }>(
-    `/notifications/${id}/read`
-  );
 }
 
 // --- Derived helpers (pure) -----------------------------------------------

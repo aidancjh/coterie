@@ -7,7 +7,6 @@ import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import { refreshAll } from "../services/gamesService";
 import {
   ArrowUpIcon,
-  BellIcon,
   CalendarIcon,
   ChatIcon,
   IconChip,
@@ -29,7 +28,6 @@ import { Logo } from "./Logo";
 function tabRootFor(pathname: string): string | null {
   if (pathname === "/" || pathname.startsWith("/game") || pathname === "/create") return "/";
   if (pathname.startsWith("/chats")) return "/chats";
-  if (pathname.startsWith("/notifications")) return "/notifications";
   if (pathname.startsWith("/profile")) return "/profile";
   return null;
 }
@@ -47,7 +45,7 @@ function useActiveTab(pathname: string): string | null {
   return root ?? lastRealTab.current;
 }
 
-const TAB_SLOT: Record<string, number> = { "/": 0, "/chats": 1, "/notifications": 3, "/profile": 4 };
+const TAB_SLOT: Record<string, number> = { "/": 0, "/chats": 1, "/profile": 3 };
 
 function tabSlotFor(pathname: string): number {
   const root = tabRootFor(pathname);
@@ -59,7 +57,6 @@ const leftTabs = [
   { to: "/chats", label: "Chats", Icon: ChatIcon },
 ];
 const rightTabs = [
-  { to: "/notifications", label: "Alerts", Icon: BellIcon },
   { to: "/profile", label: "Profile", Icon: UserIcon },
 ];
 
@@ -253,7 +250,6 @@ export default function Layout() {
           {[
             { to: "/", label: "Browse" },
             { to: "/chats", label: "Chats" },
-            { to: "/notifications", label: "Alerts" },
             { to: "/profile", label: "Profile" },
           ].map((l) => (
             <NavLink
@@ -360,7 +356,7 @@ export default function Layout() {
           {/* Sliding pill — same style as My Games tab switcher */}
           {activeSlot >= 0 && (
             <div
-              className="pointer-events-none absolute inset-y-1 left-0 w-1/5 px-1.5"
+              className="pointer-events-none absolute inset-y-1 left-0 w-1/4 px-1.5"
               style={{
                 transform: `translateX(${activeSlot * 100}%)`,
                 transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",

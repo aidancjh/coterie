@@ -17,5 +17,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // OneDrive sync-conflict copies (Foo-aidan.tsx, Foo-aidan-2.tsx). Untracked
+  // duplicates that never reach the deploy, but tsc scans src/ and fails on
+  // their stale imports. Excluded so the build reflects real source only.
+  "exclude": ["src/**/*-aidan*"]
 }

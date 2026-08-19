@@ -215,15 +215,6 @@ export interface ChatSummary {
   lastMessageAt: string | null;
 }
 
-export interface AppNotification {
-  id: string;
-  type: string;
-  message: string;
-  gameId: string | null;
-  read: boolean;
-  createdAt: string;
-}
-
 export interface Highlight {
   id: string;
   userId: string;
