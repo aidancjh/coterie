@@ -23,7 +23,6 @@ import GameComments from "../components/GameComments";
 import Modal from "../components/Modal";
 import { api } from "../lib/api";
 import { celebrate } from "../lib/celebrate";
-import ReportButton from "../components/ReportButton";
 import ErrorModal from "../components/ErrorModal";
 import {
   ArrowUpIcon,
@@ -781,16 +780,6 @@ export default function GameDetail() {
           </div>
         )}
 
-        {!isHost && (
-          <div className="border-t border-slate-800 pt-3 text-center">
-            <ReportButton
-              targetType="game"
-              targetId={game.id}
-              label="Report this game"
-              className="text-xs font-medium text-slate-400 transition hover:text-rose-500"
-            />
-          </div>
-        )}
       </div>
 
       {/* Rate teammates (only shown after game ends, only for confirmed players) */}

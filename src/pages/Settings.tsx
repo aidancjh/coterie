@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import {
   deleteAccount,
   getBlocked,
+  submitFeedback,
   unblockUser,
   type BlockedUser,
 } from "../services/gamesService";
@@ -175,13 +176,37 @@ function Row({ label, sub, onClick, danger }: { label: string; sub?: string; onC
 export default function Settings() {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const [panel, setPanel] = useState<"feedback" | "bug" | "delete" | null>(null);
+  const [panel, setPanel] = useState<"feedback" | "bug" | "report" | "delete" | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Reporting lives here and nowhere else — the in-context Report controls on
+  // games, comments and profiles were removed 2026-08-21. Because this form has
+  // no target, it goes to /api/feedback (which takes free text) rather than
+  // /api/reports (which requires a targetType + targetId).
+  const [reportBody, setReportBody] = useState("");
+  const [reportSending, setReportSending] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   const [deleteError, setDeleteError] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordInvalid, setDeletePasswordInvalid] = useState(false);
   const deletePasswordRef = useRef<HTMLInputElement>(null);
+
+  async function handleReport() {
+    if (!reportBody.trim()) return;
+    setReportSending(true);
+    setReportError("");
+    try {
+      await submitFeedback("other", "Report", reportBody.trim());
+      setReportSent(true);
+      setReportBody("");
+    } catch (e) {
+      setReportError(e instanceof Error ? e.message : "Could not send your report.");
+    } finally {
+      setReportSending(false);
+    }
+  }
 
   function handleSignOut() {
     logout();
@@ -230,6 +255,74 @@ export default function Settings() {
             <FAQItem key={item.q} {...item} />
           ))}
         </div>
+      </Section>
+
+      {/* Report a problem — the app's single reporting entry point */}
+      <Section title="Report a problem">
+        {panel === "report" ? (
+          <div className="px-4 py-4">
+            {reportSent ? (
+              <>
+                <p className="mb-1 text-sm font-semibold text-slate-100">Report sent</p>
+                <p className="mb-4 text-sm text-slate-400">
+                  Thanks — we'll take a look. We may email you if we need more detail.
+                </p>
+                <button
+                  onClick={() => {
+                    setReportSent(false);
+                    setPanel(null);
+                  }}
+                  className="w-full rounded-xl border border-slate-700 py-2.5 text-sm font-semibold text-slate-400"
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mb-3 text-sm text-slate-400">
+                  Tell us what happened. Include the game, player or message you mean so we
+                  can find it.
+                </p>
+                <textarea
+                  value={reportBody}
+                  onChange={(e) => setReportBody(e.target.value)}
+                  rows={5}
+                  maxLength={2000}
+                  placeholder="What happened, and where?"
+                  className="mb-3 w-full resize-none rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm outline-none transition focus:border-slate-400"
+                />
+                {reportError && (
+                  <ErrorModal
+                    message={reportError}
+                    onClose={() => setReportError("")}
+                    title="Couldn't send your report"
+                  />
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPanel(null)}
+                    className="flex-1 rounded-xl border border-slate-700 py-2.5 text-sm font-semibold text-slate-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReport}
+                    disabled={reportSending || !reportBody.trim()}
+                    className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {reportSending ? "Sending…" : "Send report"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <Row
+            label="Report a problem"
+            sub="Report a game, a player, or a message"
+            onClick={() => setPanel("report")}
+          />
+        )}
       </Section>
 
       {/* Blocked users */}

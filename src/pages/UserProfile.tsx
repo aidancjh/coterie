@@ -7,7 +7,6 @@ import { isInGame } from "../services/gamesService";
 import GameCard from "../components/GameCard";
 import { RatingHero, RatingEmpty } from "../components/Badges";
 import ProfileHeader from "../components/ProfileHeader";
-import ReportUserMenu from "../components/ReportUserMenu";
 import { Spinner } from "../components/Skeleton";
 
 
@@ -93,7 +92,7 @@ export default function UserProfile() {
           reviewCount: profile.hostRating?.count,
         }}
         action={
-          isMe ? undefined : <ReportUserMenu userId={profile.id} userName={profile.name} />
+          undefined
         }
       />
 

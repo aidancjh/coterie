@@ -4,7 +4,6 @@ import type { Comment } from "../types";
 import { addComment, deleteComment, getComments } from "../services/gamesService";
 import { useAuth } from "../auth/AuthContext";
 import { timeAgo } from "../lib/format";
-import ReportButton from "./ReportButton";
 import ErrorModal from "./ErrorModal";
 import { StarIcon, XIcon } from "./icons";
 
@@ -121,12 +120,6 @@ export default function GameComments({
                       >
                         <XIcon className="h-3.5 w-3.5" />
                       </button>
-                    ) : user && user.id !== c.userId ? (
-                      <ReportButton
-                        targetType="game_comment"
-                        targetId={c.id}
-                        className="ml-auto text-xs font-medium text-slate-300 hover:text-rose-500"
-                      />
                     ) : null}
                   </div>
                   <p className="whitespace-pre-wrap break-words text-sm text-slate-200">
