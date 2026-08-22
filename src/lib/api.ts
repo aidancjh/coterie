@@ -11,6 +11,19 @@ export const TOKEN_KEY = "vb.token";
 const TIMEOUT_MS = 30000; // generous — the free host can cold-start ~30s
 const MAX_RETRIES = 2;
 
+/**
+ * Absolute origin the API lives at, or "" when it is same-origin.
+ *
+ * On the web this stays "" and every call is a relative /api request, exactly as
+ * before. In the Capacitor native app the page is served from capacitor://localhost,
+ * where a relative /api path resolves to the app bundle and nothing answers it — so
+ * the native build is compiled with VITE_API_ORIGIN=https://coterie.com.de.
+ *
+ * The server must allow that cross-origin request: see the CORS allowlist in
+ * server/index.js, which permits the capacitor:// and ionic:// scheme origins.
+ */
+export const API_ORIGIN: string = import.meta.env.VITE_API_ORIGIN ?? "";
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -51,7 +64,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(`/api${path}`, {
+      const res = await fetch(`${API_ORIGIN}/api${path}`, {
         method: opts.method || "GET",
         headers,
         body: opts.body == null ? undefined : JSON.stringify(opts.body),

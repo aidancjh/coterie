@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SpikerSilhouette, DiggerSilhouette } from "../components/PlayerSilhouettes";
 import { initPostHog, captureEvent } from "../lib/posthog";
+import { API_ORIGIN } from "../lib/api";
 
 // Mobile-only waitlist design ("app sheet"): a dark hero (headline + player
 // art) over a white value sheet, sized like a phone card. Deliberately kept
@@ -166,7 +167,7 @@ export default function WaitlistMobile() {
     e.preventDefault();
     setStatus("loading");
     try {
-      const res = await fetch("/api/waitlist", {
+      const res = await fetch(`${API_ORIGIN}/api/waitlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, company, source: sourceRef.current, campaign: campaignRef.current }),

@@ -16,9 +16,12 @@
     "start": "node server/start.js",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:ios": "VITE_API_ORIGIN=https://coterie.com.de npm run build && npx cap sync ios"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
     "@sentry/node": "^10.57.0",
     "@sentry/react": "^10.57.0",
     "bcryptjs": "^2.4.3",
@@ -34,6 +37,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

@@ -21,7 +21,7 @@ import { formatCost, formatDate, formatMoney, formatTime, formatTimeRange, isPas
 import { SkillBadge, SpotsBadge, TypeBadge } from "../components/Badges";
 import GameComments from "../components/GameComments";
 import Modal from "../components/Modal";
-import { api } from "../lib/api";
+import { api, API_ORIGIN } from "../lib/api";
 import { celebrate } from "../lib/celebrate";
 import ErrorModal from "../components/ErrorModal";
 import {
@@ -540,7 +540,7 @@ export default function GameDetail() {
             </span>
             {!past && (
               <a
-                href={`/api/games/${game.id}/ics`}
+                href={`${API_ORIGIN}/api/games/${game.id}/ics`}
                 className="shrink-0 flex items-center gap-1 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-slate-800 active:scale-95"
                 aria-label="Add to calendar"
               >
