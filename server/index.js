@@ -69,6 +69,10 @@ const appOrigin = process.env.APP_URL || null;
 const railwayOrigin = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : null;
+// Origins the Capacitor iOS/Android shells report. Fixed scheme+host set by the
+// native runtime, not user-controlled: capacitor://localhost is the iOS default
+// (see iosScheme in capacitor.config.ts), http://localhost is Android's.
+const NATIVE_APP_ORIGINS = ["capacitor://localhost", "ionic://localhost"];
 app.use(
   cors({
     origin(origin, callback) {
@@ -80,6 +84,11 @@ app.use(
       const normalizedApp = appOrigin.replace(/\/$/, "");
       if (origin === appOrigin || origin === normalizedApp || origin === railwayOrigin)
         return callback(null, true);
+      // The Capacitor native app serves the bundled frontend from a custom scheme
+      // rather than from our domain, so its Origin never matches appOrigin. This is
+      // our own shipped build — same code, same Bearer-token auth — so allow it.
+      // (Android reports http://localhost, already allowed by the check above.)
+      if (NATIVE_APP_ORIGINS.includes(origin)) return callback(null, true);
       // Reject gracefully: omit CORS headers (the browser blocks cross-origin reads)
       // rather than throwing. A thrown error becomes a 500 "Something went wrong on
       // the server" that hits every POST from a mismatched origin (incl. logins) and

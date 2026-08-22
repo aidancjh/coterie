@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { api, setToken } from "../lib/api";
+import { api, setToken, API_ORIGIN } from "../lib/api";
 import type { User } from "../types";
 import { IconChip, MailIcon } from "../components/icons";
 import { Logo } from "../components/Logo";
@@ -345,7 +345,7 @@ export default function Auth() {
         <div className="flex-1 border-t border-slate-800" />
       </div>
       <a
-        href="/api/auth/google"
+        href={`${API_ORIGIN}/api/auth/google`}
         className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700 bg-slate-900 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>

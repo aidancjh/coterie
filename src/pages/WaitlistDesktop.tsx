@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SpikerSilhouette, DiggerSilhouette } from "../components/PlayerSilhouettes";
 import { initPostHog, captureEvent } from "../lib/posthog";
+import { API_ORIGIN } from "../lib/api";
 
 // Desktop-only waitlist design (canvas-rays). Deliberately kept separate from
 // WaitlistMobile.tsx — see Waitlist.tsx for the breakpoint that picks between
@@ -262,7 +263,7 @@ export default function WaitlistDesktop() {
     e.preventDefault();
     setStatus("loading");
     try {
-      const res = await fetch("/api/waitlist", {
+      const res = await fetch(`${API_ORIGIN}/api/waitlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, company, source: sourceRef.current, campaign: campaignRef.current }),
