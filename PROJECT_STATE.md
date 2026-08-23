@@ -166,9 +166,15 @@ Needs verifying in the Resend dashboard before launch — and `MAIL_FROM` must b
 both services.
 
 **Preview fork rebuilt as a two-screen waitlist sign-up (2026-08-23):**
-- Repo `coterie-prototype`, commit `0d94402`. **Pushed but NOT deployed** — that
-  fork does not auto-deploy; it needs `railway up --service web --ci` from its folder,
-  and this machine's Railway CLI is not linked to the project.
+- Repo `coterie-prototype`. **Deployed 2026-08-23** to `coterie-preview` and live at
+  preview.coterie.com.de. The fork does not auto-deploy; deploy with
+  `railway up --service "live game preview" --ci` from its folder — the service was
+  renamed from `web`, so the previously documented command fails with "Service not found".
+- **Live state, verified against the deployed site:** the landing page shows the new
+  waitlist copy, `/api/config` returns `waitlistOnly: true`, **`/api/auth/google` returns
+  503 (not configured)** and **sign-up returns 502 (no Resend key)** — the two remaining
+  blockers, both confirmed live rather than assumed. A failed sign-up leaves no
+  `pending_signups` row behind, as designed.
 - **The landing page stays.** `PublicGame.tsx` is the logged-out face of `/` and
   `/game/:id`; logged in, both are the one app screen. It now resolves its own game from
   `/api/config` instead of the hardcoded `game_demo_1`. Reframed 2026-08-23: the closing

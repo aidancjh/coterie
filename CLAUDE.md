@@ -101,7 +101,8 @@ flag makes every join land on the waitlist and disables auto-promotion,
 because the host picks players by hand. Changes here therefore **no longer
 mirror across** — the pages, components and hooks they touch don't exist
 there. It does NOT auto-deploy on push: deploy from that folder with
-`railway up --service web --ci`.
+`railway up --service "live game preview" --ci` (the service was renamed from `web`;
+`--service web` now fails with "Service not found").
 
 `GameDetail.tsx` fetches `/api/games/:id/ratables` when the game is in the past and the user was a player — renders inline star pickers to rate teammates using `api.post` directly (not via gamesService).
 
