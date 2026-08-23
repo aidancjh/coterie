@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-22 (Capacitor iOS wrap; repo moved to ~/dev/coterie) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-23 (game history moved out of Browse into Settings) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -57,6 +57,7 @@ Full detail lives in `CLAUDE.md`. Ops/env vars in `OPERATIONS.md`. Deploy in `DE
 
 | Decision | Rationale | Date |
 |---|---|---|
+| **Past games left the Browse page.** Browse's pill switcher is now Browse / Upcoming / Hosting (three, not four). Past games live on a new page, `src/pages/GameHistory.tsx` at `/history`, reached from **Settings → Your games → Game history**. The "Review" button and `ReviewModal` moved with them; `getPendingReviews()` is no longer called from `BrowseGames`. | Aidan's call. Browse is for games ahead of you; history is a lookback and was taking a quarter of the switcher for something rarely opened. Settings was his choice of home (I'd suggested Profile, which already shows gamesHosted/gamesPlayed). **Reviews are not at risk from the move:** `ReviewPrompt` polls `pendingReviews` and pops its modal on any page, so nobody has to find `/history` to be asked. | 2026-08-23 |
 | **iOS app wrapped with Capacitor and running** — `ios/` is a real Xcode project (`ios/App/App.xcodeproj`, Capacitor 8, Swift Package Manager, no CocoaPods). It ships the built frontend from `dist` **inside the bundle**, not a remote URL. Two changes made that possible: `src/lib/api.ts` exports `API_ORIGIN` (empty on web, absolute for native via `npm run build:ios`) because a relative `/api` resolves to the bundle under `capacitor://localhost`; and `server/index.js` allows the `capacitor://` origin through CORS, without which every request was silently dropped. App icon is the coral logo tile, alpha-stripped for App Store validation. Verified end-to-end in the iOS Simulator against production. | Executes the 2026-06-23 Capacitor decision. Bundled rather than remote-URL because Apple rejects apps that are only a web view onto a live site. **Still open:** Google OAuth is blocked by Google inside embedded webviews and needs the system browser (email sign-in works); the launch splash is still Capacitor's default white; no Apple Developer account yet, so no TestFlight, no push notifications, no submission. | 2026-08-22 |
 | **The Mac working clone lives at `~/dev/coterie`, never under `~/Documents`** — moved 2026-08-22. iCloud Drive syncs `~/Documents`, and Apple's `actool` cannot read a file-provider-backed directory, so every iOS build failed with a misleading *"Assets.xcassets ... you don't have permission"*. Same source built in 13s once moved. The stale `~/dev/Volleyball-Claude` clone was deleted (clean, fully pushed). | Two clones remain: `~/dev/coterie` (work here) and the OneDrive one (backup, 11 uncommitted edits). Code backup is GitHub, not iCloud. | 2026-08-22 |
 | **Reporting collapsed to a single entry point in Settings** — removed the in-context `Report` controls from game comments (`GameComments.tsx`), the game detail page (`GameDetail.tsx`, "Report this game") and other players' profiles (`UserProfile.tsx`). `ReportButton.tsx` and `ReportUserMenu.tsx` deleted — both were orphaned. New **Report a problem** section in `Settings.tsx` is now the only way to report. **Blocking is untouched** — it was always its own button in `UserProfile.tsx`, not part of the report menu. Admin moderation (`src/admin/`) and `POST /api/reports` are untouched but the consumer app no longer calls the latter. | Aidan's call: the Report links were cluttering every surface. **Trade-off, flagged and accepted:** the Settings form has no target, so it posts to `/api/feedback` (free text) rather than `/api/reports` (requires `targetType` + `targetId`) — moderation can no longer act on a specific item, and **App Store Guideline 1.2 expects UGC apps to let users flag specific content**, so this is a review risk to revisit before submission. | 2026-08-21 |
@@ -135,6 +136,25 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Game history moved from Browse to Settings (2026-08-23):**
+- `src/pages/GameHistory.tsx` — new page at `/history`. Past games you played, hosted
+  or were waitlisted for, newest first, with the same inline **Review** button and
+  `ReviewModal` the Past tab had. Back arrow returns to Settings.
+- `src/pages/Settings.tsx` — new first section, **Your games → Game history**, using
+  the existing `Row`. Reachable in two taps on phone and desktop alike, because the
+  header's settings icon is not breakpoint-gated.
+- `src/pages/BrowseGames.tsx` — the `past` view is gone: dropped from the `View` union,
+  `VIEWS`, `VIEW_SUBTITLE`, `parseView`, `myList`, the empty-state copy and the card
+  loop. The sliding pill is now `calc((100% - 8px) / 3)`. `ReviewModal`,
+  `getPendingReviews`, the `Game` type import and the `pendingIds` / `reviewGame`
+  state came out with it.
+- `src/App.tsx` — lazy `GameHistory` + the `/history` route. `/?view=past` no longer
+  matches anything, so `parseView` falls back to Browse rather than 404ing.
+- Verified: `npx tsc --noEmit` and `npm run build` both clean. No screenshot — no
+  headless browser in this environment; the layout reasoning is in the commit.
+- **Not mirrored to `coterie-prototype` yet** — that fork shares this frontend and
+  still has the four-tab Browse.
 
 **Access gate REMOVED — the app is public again (2026-08-09, same day it shipped):**
 - Aidan's call after the gate cost more than it was worth: the service worker made

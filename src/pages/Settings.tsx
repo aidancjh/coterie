@@ -248,6 +248,15 @@ export default function Settings() {
         <h1 className="text-xl font-bold tracking-tight text-white">Settings</h1>
       </div>
 
+      {/* Your games — past games moved here from the Browse page 2026-08-23 */}
+      <Section title="Your games">
+        <Row
+          label="Game history"
+          sub="Games you've already played or hosted, and any review you still owe"
+          onClick={() => navigate("/history")}
+        />
+      </Section>
+
       {/* FAQ */}
       <Section title="Frequently asked questions">
         <div className="px-4">

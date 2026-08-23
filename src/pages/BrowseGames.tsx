@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import type { Game } from "../types";
 import { useGames } from "../hooks/useGames";
 import { useProfile } from "../hooks/useProfile";
-import { isInGame, isOnWaitlist, spotsLeft, getPendingReviews } from "../services/gamesService";
+import { isInGame, isOnWaitlist, spotsLeft } from "../services/gamesService";
 import { isPast } from "../lib/format";
 import GameCard from "../components/GameCard";
-import ReviewModal from "../components/ReviewModal";
 import { GameCardSkeleton } from "../components/Skeleton";
 import Modal from "../components/Modal";
 import { SearchIcon, XIcon } from "../components/icons";
@@ -147,22 +145,22 @@ function paramsToState(p: URLSearchParams): { filters: Filters; search: string }
   };
 }
 
-type View = "browse" | "upcoming" | "hosting" | "past";
+// Past games moved out of Browse on 2026-08-23 — they live on /history,
+// reached from Settings. Browse is only games that haven't happened yet.
+type View = "browse" | "upcoming" | "hosting";
 const VIEWS: { key: View; label: string }[] = [
   { key: "browse", label: "Browse" },
   { key: "upcoming", label: "Upcoming" },
   { key: "hosting", label: "Hosting" },
-  { key: "past", label: "Past" },
 ];
 const VIEW_SUBTITLE: Record<View, string> = {
   browse: "Open volleyball games near you that still need players.",
   upcoming: "Games you've joined, are hosting, or are waitlisted for.",
   hosting: "Games you're hosting.",
-  past: "Games you've already played — leave a review.",
 };
 function parseView(p: URLSearchParams): View {
   const v = p.get("view");
-  return v === "upcoming" || v === "hosting" || v === "past" ? v : "browse";
+  return v === "upcoming" || v === "hosting" ? v : "browse";
 }
 
 export default function BrowseGames() {
@@ -184,15 +182,6 @@ export default function BrowseGames() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, search, view]);
   const [showFilters, setShowFilters] = useState(false);
-
-  // Pending reviews power the "Review" button in the Past view.
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-  const [reviewGame, setReviewGame] = useState<Game | null>(null);
-  useEffect(() => {
-    getPendingReviews()
-      .then((gs) => setPendingIds(new Set(gs.map((g) => g.id))))
-      .catch(() => {});
-  }, []);
 
   const visible = useMemo(() => {
     const f = filters;
@@ -247,7 +236,7 @@ export default function BrowseGames() {
       .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
   }, [games, search, filters]);
 
-  // "My games" views (upcoming / hosting / past) — the merged My Games content.
+  // "My games" views (upcoming / hosting) — the merged My Games content.
   const mine = useMemo(
     () =>
       games.filter(
@@ -260,7 +249,6 @@ export default function BrowseGames() {
       (a.date + a.time).localeCompare(b.date + b.time)
     );
     if (view === "hosting") return sorted.filter((g) => g.hostId === me.id);
-    if (view === "past") return sorted.filter((g) => isPast(g.date)).reverse();
     if (view === "upcoming") return sorted.filter((g) => !isPast(g.date));
     return [];
   }, [mine, view, me.id]);
@@ -285,13 +273,13 @@ export default function BrowseGames() {
         </button>
       </div>
 
-      {/* View switcher — Browse + your games (upcoming / hosting / past) */}
+      {/* View switcher — Browse + your games (upcoming / hosting) */}
       <div className="relative mb-4 flex rounded-xl bg-slate-800 p-1">
         <div
           className="pointer-events-none absolute inset-y-1 rounded-lg bg-brand shadow-sm"
           style={{
             left: 4,
-            width: "calc((100% - 8px) / 4)",
+            width: "calc((100% - 8px) / 3)",
             transform: `translateX(${viewIndex * 100}%)`,
             transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
@@ -420,8 +408,6 @@ export default function BrowseGames() {
             <p className="text-sm text-slate-400">
               {view === "hosting"
                 ? "You're not hosting yet. Posting a game takes a minute, and players can claim spots the moment it's live."
-                : view === "past"
-                ? "No games played yet. Once you've played one, it shows up here with your teammates to rate."
                 : "No upcoming games yet. Every game says what level it's for, so you can see what suits you before you join."}
             </p>
             {view === "hosting" ? (
@@ -442,23 +428,9 @@ export default function BrowseGames() {
           </div>
         ) : (
           <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
-            {myList.map((g) => {
-              const canReview =
-                view === "past" && g.hostId !== me.id && pendingIds.has(g.id);
-              return (
-                <div key={g.id} className="relative">
-                  <GameCard game={g} youAreIn={isInGame(g, me.id)} />
-                  {canReview && (
-                    <button
-                      onClick={() => setReviewGame(g)}
-                      className="absolute right-3 top-3 z-10 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-dark active:scale-95"
-                    >
-                      Review
-                    </button>
-                  )}
-                </div>
-              );
-            })}
+            {myList.map((g) => (
+              <GameCard key={g.id} game={g} youAreIn={isInGame(g, me.id)} />
+            ))}
           </div>
         ))}
 
@@ -468,19 +440,6 @@ export default function BrowseGames() {
           setFilters={setFilters}
           count={visible.length}
           onClose={() => setShowFilters(false)}
-        />
-      )}
-      {reviewGame && (
-        <ReviewModal
-          game={reviewGame}
-          onDone={() => {
-            setPendingIds((prev) => {
-              const next = new Set(prev);
-              next.delete(reviewGame.id);
-              return next;
-            });
-            setReviewGame(null);
-          }}
         />
       )}
     </div>

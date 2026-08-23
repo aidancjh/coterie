@@ -83,7 +83,8 @@ capped connection pool (`DB_POOL_MAX`) so admin traffic can never starve the con
 | `hooks/useProfile.ts` | Returns profile of logged-in user from context |
 | `lib/format.ts` | `formatDate`, `formatTime`, `formatTimeRange`, `isPast`, `relativeDay` |
 
-Pages: `BrowseGames` (includes the Upcoming/Hosting/Past views), `GameDetail`,
+Pages: `BrowseGames` (includes the Upcoming/Hosting views), `GameHistory`
+(past games, at `/history`, linked from Settings), `GameDetail`,
 `CreateGame`, `EditGame`, `Interested` (starred games), `Chats`, `ChatRoom`,
 `Notifications`, `UserProfile`, `Profile`, `Settings`, `Auth`, `Onboarding`,
 `Privacy`, `Waitlist*`. (Marketplace and highlight *posting* were removed

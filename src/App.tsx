@@ -20,6 +20,7 @@ const Onboarding  = lazy(() => import("./pages/Onboarding"));
 const Chats       = lazy(() => import("./pages/Chats"));
 const ChatRoom    = lazy(() => import("./pages/ChatRoom"));
 const Interested = lazy(() => import("./pages/Interested"));
+const GameHistory = lazy(() => import("./pages/GameHistory"));
 
 function PageFallback() {
   return (
@@ -72,6 +73,8 @@ export default function App() {
 
         {/* My Games merged into Browse's pill switcher — keep the old path working */}
         <Route path="/my-games" element={<Navigate to="/?view=upcoming" replace />} />
+        {/* Past games left Browse on 2026-08-23 — reached from Settings */}
+        <Route path="/history" element={<Suspense fallback={<PageFallback />}><GameHistory /></Suspense>} />
         <Route path="/profile" element={<Suspense fallback={<PageFallback />}><Profile /></Suspense>} />
         <Route path="/settings" element={<Suspense fallback={<PageFallback />}><Settings /></Suspense>} />
         <Route path="*" element={<NotFound />} />
