@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { getUserHighlights } from "../services/gamesService";
 import { api } from "../lib/api";
@@ -7,6 +8,7 @@ import type { Highlight, SkillLevel } from "../types";
 import { RatingHero, RatingEmpty } from "../components/Badges";
 import ProfileHeader from "../components/ProfileHeader";
 import {
+  CalendarIcon,
   CameraIcon,
   ClapperIcon,
   HeartIcon,
@@ -450,6 +452,27 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      {/* Game history — sits directly under the games-played / games-hosted
+          stats in the header, which is what it's the detail behind. Moved here
+          from Settings on 2026-08-23. */}
+      <Link
+        to="/history"
+        className="mb-4 flex w-full items-center justify-between rounded-3xl border border-slate-800 bg-slate-900 px-4 py-4 text-left shadow-sm transition hover:bg-slate-800 active:scale-[0.99]"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+            <CalendarIcon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-100">Game history</p>
+            <p className="truncate text-xs text-slate-400">
+              Games you've already played or hosted
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 text-slate-300">›</span>
+      </Link>
 
       {/* Highlights — the user's own clips, posted from here */}
       <HighlightGrid highlights={highlights} />

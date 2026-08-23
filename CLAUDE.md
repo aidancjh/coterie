@@ -84,7 +84,7 @@ capped connection pool (`DB_POOL_MAX`) so admin traffic can never starve the con
 | `lib/format.ts` | `formatDate`, `formatTime`, `formatTimeRange`, `isPast`, `relativeDay` |
 
 Pages: `BrowseGames` (includes the Upcoming/Hosting views), `GameHistory`
-(past games, at `/history`, linked from Settings), `GameDetail`,
+(past games, at `/history`, linked from Profile), `GameDetail`,
 `CreateGame`, `EditGame`, `Interested` (starred games), `Chats`, `ChatRoom`,
 `Notifications`, `UserProfile`, `Profile`, `Settings`, `Auth`, `Onboarding`,
 `Privacy`, `Waitlist*`. (Marketplace and highlight *posting* were removed

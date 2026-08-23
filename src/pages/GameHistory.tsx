@@ -12,7 +12,7 @@ import { GameCardSkeleton } from "../components/Skeleton";
 /**
  * Every game you've already played or hosted, newest first. Lived as the
  * "Past" tab on Browse until 2026-08-23; Browse is now only games ahead of
- * you, and history is reached from Settings.
+ * you, and history is reached from the Profile page.
  */
 export default function GameHistory() {
   const { games, loading, error, reload } = useGames();
@@ -44,9 +44,9 @@ export default function GameHistory() {
       {/* Header */}
       <div className="mb-5 flex items-center gap-3">
         <button
-          onClick={() => navigate("/settings")}
+          onClick={() => navigate("/profile")}
           className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800"
-          aria-label="Back to settings"
+          aria-label="Back to profile"
         >
           ←
         </button>
