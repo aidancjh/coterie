@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-23 (game history moved to Profile; preview fork cut to two screens) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-23 (game history moved to Profile; preview fork cut to two screens; Railway topology mapped) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -137,6 +137,33 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Railway topology, mapped and verified 2026-08-23** (the project names are Railway
+auto-generated and tell you nothing, so this is the map):
+
+| Railway project | Holds | Domain |
+|---|---|---|
+| `triumphant-spirit` | `coterie_main` + its `Postgres` (with volume) | coterie.com.de |
+| `carefree-magic` | `admin/posthog` | admin.coterie.com.de |
+| `coterie-preview` | `web` + its own `Postgres` | preview.coterie.com.de, and Railway's `web-production-e0326.up.railway.app` (same service, two domains) |
+| `coterie-prototype` | one failed service, no DB, no custom vars, URL 404s | — (**to be deleted**; CLI `railway delete` is interactive-gated, needs the dashboard) |
+
+**The preview is fully isolated from the main app** — checked by reading both services'
+variables and comparing fingerprints, not by assumption:
+- Different `DATABASE_URL` (main `crossover.proxy.rlwy.net:18746`, preview
+  `postgres.railway.internal:5432` — the internal host only resolves inside its own
+  project, so the preview physically cannot reach the main DB).
+- Different `JWT_SECRET`, so a session token from one app is rejected by the other.
+- The preview has no Cloudinary, Google or Resend credentials at all yet.
+- Separate Railway projects means separate private networks, separate Postgres, separate
+  volumes, separate billing lines.
+
+**Found while checking: `MAIL_FROM` is unset on the MAIN app too.** `server/email.js`
+therefore falls back to `Coterie <onboarding@resend.dev>`, Resend's shared sandbox sender,
+which only delivers to the Resend account owner's own address. If that is really the case
+in production, password-reset and join-confirmation emails have never reached real users.
+Needs verifying in the Resend dashboard before launch — and `MAIL_FROM` must be set on
+both services.
 
 **Preview fork rebuilt as a two-screen waitlist sign-up (2026-08-23):**
 - Repo `coterie-prototype`, commit `0d94402`. **Pushed but NOT deployed** — that
