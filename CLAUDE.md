@@ -91,7 +91,7 @@ Pages: `BrowseGames` (includes the Upcoming/Hosting views), `GameHistory`
 2026-07-23 when the app adopted the preview's frontend; highlight *viewing*
 remains.)
 
-**Preview fork:** `aidancjh/coterie-prototype`, deployed to its own Railway
+**Preview fork:** `aidancjh/live-game-website-preview`, deployed to its own Railway
 project (`coterie-preview`) at https://preview.coterie.com.de, with its
 own Postgres and no admin. **As of 2026-08-23 it is no longer a copy of
 this app** — it is two screens (create an account with an emailed 6-digit

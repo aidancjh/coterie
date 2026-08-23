@@ -17,8 +17,8 @@
       "name": "coterie-preview-api",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": [
-        "--env-file=C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\coterie-prototype\\.env",
-        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\coterie-prototype\\server\\index.js"
+        "--env-file=C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\live-game-website-preview\\.env",
+        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\live-game-website-preview\\server\\index.js"
       ],
       "port": 4000
     },
@@ -26,10 +26,10 @@
       "name": "coterie-preview-web",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": [
-        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\coterie-prototype\\node_modules\\vite\\bin\\vite.js",
-        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\coterie-prototype",
+        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\live-game-website-preview\\node_modules\\vite\\bin\\vite.js",
+        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\live-game-website-preview",
         "--config",
-        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\coterie-prototype\\vite.config.ts"
+        "C:\\Users\\aidan\\OneDrive - Soul ways\\Claude\\live-game-website-preview\\vite.config.ts"
       ],
       "port": 5173
     },
