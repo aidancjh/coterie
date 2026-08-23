@@ -91,16 +91,17 @@ Pages: `BrowseGames` (includes the Upcoming/Hosting views), `GameHistory`
 2026-07-23 when the app adopted the preview's frontend; highlight *viewing*
 remains.)
 
-**Preview fork:** a tester-facing near-copy of this app (no admin, separate
-DB) lives in a separate repo, `aidancjh/coterie-prototype`, deployed to its
-own Railway project (`coterie-preview`) at https://preview.coterie.com.de.
-Since 2026-07-23 the main app uses the SAME frontend (Coterie name, red/light
-theme, desktop nav) — the fork's remaining deltas are infrastructure (own
-Railway project + Postgres, no admin, seed date-shifting). It does NOT
-auto-deploy on push — deploy from that folder with
-`railway up --service web --ci`. When changing shared behavior here (forms,
-validation, endpoints, UI), mirror the change there; see PROJECT_STATE.md for
-what has been kept in sync so far.
+**Preview fork:** `aidancjh/coterie-prototype`, deployed to its own Railway
+project (`coterie-preview`) at https://preview.coterie.com.de, with its
+own Postgres and no admin. **As of 2026-08-23 it is no longer a copy of
+this app** — it is two screens (create an account with an emailed 6-digit
+code or Google, then one game with a *Join the waitlist* button), built to
+take sign-ups for a single game from a Google Form link. Its `WAITLIST_ONLY`
+flag makes every join land on the waitlist and disables auto-promotion,
+because the host picks players by hand. Changes here therefore **no longer
+mirror across** — the pages, components and hooks they touch don't exist
+there. It does NOT auto-deploy on push: deploy from that folder with
+`railway up --service web --ci`.
 
 `GameDetail.tsx` fetches `/api/games/:id/ratables` when the game is in the past and the user was a player — renders inline star pickers to rate teammates using `api.post` directly (not via gamesService).
 

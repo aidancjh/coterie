@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-23 (game history moved out of Browse onto the Profile page) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-23 (game history moved to Profile; preview fork cut to two screens) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -57,6 +57,7 @@ Full detail lives in `CLAUDE.md`. Ops/env vars in `OPERATIONS.md`. Deploy in `DE
 
 | Decision | Rationale | Date |
 |---|---|---|
+| **The preview fork is no longer a copy of the app.** `coterie-prototype` is now two screens: create an account (email + password with an emailed 6-digit code, or Google), then one game with a **Join the waitlist** button. Browse, hosting, chats, profiles, notifications, settings, highlights, reviews, interested, onboarding, the waitlist marketing pages, the bottom tab bar, the desktop nav, the demo one-tap panel and the 2026-08-15 public landing page (`PublicGame.tsx`) are all deleted. New `WAITLIST_ONLY` flag (on by default) makes every join land on the waitlist regardless of free slots and disables auto-promotion. New `pending_signups` table + `/api/auth/verify-code` and `/api/auth/resend-code`. `GET /api/config` gains `featuredGameId`. | Aidan is driving sign-ups for **one** game from a Google Form link and picks the players by hand, so the app must not imply anyone is confirmed, and everything not on the path from link → account → waitlist is noise. Codes rather than a magic link because it is what people expect from a sign-up form. | 2026-08-23 |
 | **Past games left the Browse page.** Browse's pill switcher is now Browse / Upcoming / Hosting (three, not four). Past games live on a new page, `src/pages/GameHistory.tsx` at `/history`, reached from a **Game history** card on the **Profile** page, sitting under the bio/rating card and above Highlights. The "Review" button and `ReviewModal` moved with them; `getPendingReviews()` is no longer called from `BrowseGames`. | Aidan's call. Browse is for games ahead of you; history is a lookback and was taking a quarter of the switcher for something rarely opened. It first landed in Settings at his request, then moved to Profile the same day — Profile already shows gamesHosted/gamesPlayed in its header, so the card sits directly under the numbers it's the detail behind. **Reviews are not at risk from the move:** `ReviewPrompt` polls `pendingReviews` and pops its modal on any page, so nobody has to find `/history` to be asked. | 2026-08-23 |
 | **iOS app wrapped with Capacitor and running** — `ios/` is a real Xcode project (`ios/App/App.xcodeproj`, Capacitor 8, Swift Package Manager, no CocoaPods). It ships the built frontend from `dist` **inside the bundle**, not a remote URL. Two changes made that possible: `src/lib/api.ts` exports `API_ORIGIN` (empty on web, absolute for native via `npm run build:ios`) because a relative `/api` resolves to the bundle under `capacitor://localhost`; and `server/index.js` allows the `capacitor://` origin through CORS, without which every request was silently dropped. App icon is the coral logo tile, alpha-stripped for App Store validation. Verified end-to-end in the iOS Simulator against production. | Executes the 2026-06-23 Capacitor decision. Bundled rather than remote-URL because Apple rejects apps that are only a web view onto a live site. **Still open:** Google OAuth is blocked by Google inside embedded webviews and needs the system browser (email sign-in works); the launch splash is still Capacitor's default white; no Apple Developer account yet, so no TestFlight, no push notifications, no submission. | 2026-08-22 |
 | **The Mac working clone lives at `~/dev/coterie`, never under `~/Documents`** — moved 2026-08-22. iCloud Drive syncs `~/Documents`, and Apple's `actool` cannot read a file-provider-backed directory, so every iOS build failed with a misleading *"Assets.xcassets ... you don't have permission"*. Same source built in 13s once moved. The stale `~/dev/Volleyball-Claude` clone was deleted (clean, fully pushed). | Two clones remain: `~/dev/coterie` (work here) and the OneDrive one (backup, 11 uncommitted edits). Code backup is GitHub, not iCloud. | 2026-08-22 |
@@ -124,18 +125,44 @@ Ordered by priority. Update status inline as these move.
 | 18 | **ESLint ignores `server/` and `tests/` entirely** — the whole backend has never been linted. `npm run lint` only covers `src/`. Worth widening the config. | ⬜ Not started |
 | 19 | Stale remote branches on origin: `main-aidan`, `cleanup/phases-0-2-hygiene-reliability-a11y`, `worktree-admin-split-analytics`. Deleting remote branches needs Aidan's OK. | ⬜ Awaiting Aidan |
 | 21 | **The consumer feedback / bug form is unreachable.** `submitFeedback()` in `src/services/gamesService.ts`, `POST /api/feedback`, the `feedback` table and the admin Feedback inbox all still work, but `Settings.tsx` lost the rows that opened the form in the July 2026 frontend change (its `panel` state still has `"feedback" \| "bug"` cases with nothing to trigger them). Testers currently have no in-app way to report anything. | ⬜ Not started |
-| 22 | **Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype`** — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy. | ⬜ Not started |
-| 23 | **Mirror the 2026-07-30 price-display fix to `coterie-prototype`** — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`. | ⬜ Not started |
+| 22 | ~~Mirror the 2026-07-30 tone-of-voice copy pass to `coterie-prototype` — Onboarding, Browse empty states, GameDetail modals, Settings FAQ, GameForm cost hint, meta description, and `server/email.js` colour/copy fixes. The fork shares this frontend, so testers are reading the old copy.~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
+| 23 | ~~Mirror the 2026-07-30 price-display fix to `coterie-prototype` — `CostBadge` on `GameCard`, unconditional cost row on `GameDetail` + join modals, `formatMoney`/`formatCost` moved to `lib/format.ts`.~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
 | 25 | **`README.md` still has pre-rebrand drift** — brand colour listed as blue `#0b6ecd` (actual: red `#d92632`) and typeface listed as `Inter` (actual: Public Sans), a few lines below the 2026-07-30 name/tagline fix. Also references `Start Vybe.bat` by its literal filename — left alone since renaming it could break an existing desktop shortcut. | ⬜ Not started |
-| 20 | **Mirror the waitlist `campaign` field to `coterie-prototype`** — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add). | ⬜ Not started |
-| 26 | **Mirror the 2026-07-31 Browse filters change to `coterie-prototype`** — court type + net height now multi-select, net height reordered, "All Levels" and every "Any" chip removed from the filter modal, Game-time range now clamps to stay valid. Fork shares this frontend. | ⬜ Not started |
-| 27 | **Mirror the 2026-07-31 GameForm required-fields change to `coterie-prototype`** — cost per person and end time are now compulsory (0 still valid for a free game), cost input restricted to digits + one decimal point. Fork shares this frontend. | ⬜ Not started |
-| 28 | **Mirror the 2026-08-17 courts/region change to `coterie-prototype`** — `src/lib/courts.ts`, `src/components/CourtPicker.tsx`, the Region field in `GameForm.tsx`, the Region filter in `BrowseGames.tsx`, the region badge on `GameCard.tsx`, and `Central` in `server/validation.js`'s `REGIONS`. Aidan asked for main-app-only deploy on 2026-08-17, so the fork is deliberately behind. | ⬜ Not started |
+| 20 | ~~Mirror the waitlist `campaign` field to `coterie-prototype` — `WaitlistDesktop.tsx`/`WaitlistMobile.tsx` now also capture `?utm_campaign=` and send it to `/api/waitlist`; the preview fork's copies of these pages + its `/api/waitlist` route need the same change (its own DB, no admin, so no funnel chart there to add).~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
+| 26 | ~~Mirror the 2026-07-31 Browse filters change to `coterie-prototype` — court type + net height now multi-select, net height reordered, "All Levels" and every "Any" chip removed from the filter modal, Game-time range now clamps to stay valid. Fork shares this frontend.~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
+| 27 | ~~Mirror the 2026-07-31 GameForm required-fields change to `coterie-prototype` — cost per person and end time are now compulsory (0 still valid for a free game), cost input restricted to digits + one decimal point. Fork shares this frontend.~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
+| 28 | ~~Mirror the 2026-08-17 courts/region change to `coterie-prototype` — `src/lib/courts.ts`, `src/components/CourtPicker.tsx`, the Region field in `GameForm.tsx`, the Region filter in `BrowseGames.tsx`, the region badge on `GameCard.tsx`, and `Central` in `server/validation.js`'s `REGIONS`. Aidan asked for main-app-only deploy on 2026-08-17, so the fork is deliberately behind.~~ **Obsolete 2026-08-23** — the fork no longer contains any of these files; it is two screens, not a copy of the app. | ✅ Obsolete |
 | 29 | **`.text-white` nested inside a `bg-black*` element renders pure white** — `src/index.css` (~lines 62-77) is meant to keep text white on coloured *surfaces*, but it also matches any descendant of a modal **backdrop** (`Modal.tsx` defaults to `bg-black/60`). This made the Filters modal title invisible on its white panel; fixed there on 2026-08-17 by using `text-slate-100` (dark ink in the inverted scale). Other modals may have live instances: `ErrorModal`, `GameForm`, `GameComments`, `ReviewModal`, `Auth`, `ChatRoom`, `GameDetail`, `Settings`. A root fix in `index.css` is possible but needs care — a later `bg-slate-900 .text-white` rule would tie on specificity and regress brand-coloured buttons nested in cards. | ⬜ Not started |
 
 ---
 
 ## 5. Completed — do not redo
+
+**Preview fork rebuilt as a two-screen waitlist sign-up (2026-08-23):**
+- Repo `coterie-prototype`, commit `0d94402`. **Pushed but NOT deployed** — that
+  fork does not auto-deploy; it needs `railway up --service web --ci` from its folder,
+  and this machine's Railway CLI is not linked to the project.
+- `src/pages/PreviewGame.tsx` (new) — the game's details and one button. `src/pages/Auth.tsx`
+  gains a `code` step; `AuthContext` gains `verifyCode` / `resendCode`; `Layout.tsx` is now a
+  bare header + outlet; `App.tsx` is `/auth`, `/privacy`, `/`, and everything else redirects
+  to `/`. 34 files deleted.
+- Server: `pending_signups` table (`db.js`), `createPendingSignup` / `checkSignupCode` /
+  `otpResendWaitSeconds` / `getFeaturedGameId` and `WAITLIST_ONLY` (`repo.js`),
+  `sendSignupCodeEmail` / `sendWaitlistEmail` (`email.js`), the two-step signup routes and
+  `featuredGameId` on `/api/config` (`index.js`), `verifyCodeSchema` / `resendCodeSchema`
+  (`validation.js`).
+- Codes are stored **hashed**, expire in 10 minutes, allow 5 wrong guesses, resend once a
+  minute. Without `RESEND_API_KEY` the server now **throws in production** rather than
+  silently "sending" a code nobody receives.
+- Verified end-to-end against the preview database: code emailed (console in dev), wrong
+  code refused with tries remaining, right code creates the account, and a join on a game
+  with 9 free slots still lands on the waitlist. Both test accounts deleted afterwards.
+- **Still needed before it can be used:** `RESEND_API_KEY` on the preview Railway service
+  (sign-up is impossible without it), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` plus the
+  preview's callback URL registered in Google Cloud Console, and a real game to point at —
+  `PREVIEW_GAME_ID` is unset, so it currently falls back to the seeded demo game
+  `game_demo_1` ("Aidan's Volleyball Game"). There is no create-game screen any more, so
+  the real game has to be seeded.
 
 **Game history moved from Browse to Settings (2026-08-23):**
 - `src/pages/GameHistory.tsx` — new page at `/history`. Past games you played, hosted
