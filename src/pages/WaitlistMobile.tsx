@@ -368,7 +368,7 @@ export default function WaitlistMobile() {
               ))}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#5B6B7E" }}>
-              400+ players already on the list
+              700+ players already on the list
             </span>
             <button type="button" onClick={() => setFaqOpen(true)} className="wl-faq-btn">
               FAQ

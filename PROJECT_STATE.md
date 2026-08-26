@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-26 (Positions needed always shown; start/end time stacked on phones after the 2-col grid still clipped on iOS; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-26 (waitlist social proof 400+ -> 700+; Positions needed always shown; start/end time stacked on phones; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -139,6 +139,18 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Waitlist social proof updated to 700+ (2026-08-26):**
+- `WaitlistMobile.tsx` and `WaitlistDesktop.tsx` said "400+ players already on the list".
+  Aidan's figure is now **700+**, so both read that. The number is still **hardcoded** in
+  those two files — it reads from nothing and will go stale again.
+- Recorded counts so far: ~73 (Jul) -> 200 (2026-08-05) -> 400 -> 487 (2026-08-11) ->
+  700+ (2026-08-26, Aidan's own figure; the admin dashboard was not read for this).
+- **Still open:** a public count endpoint so the page reads the live total and Aidan stops
+  having to open admin to check it. Mockups for the display were designed on 2026-08-26
+  (four options; the big-number treatment was the recommendation). Not built — the number
+  is in the `waitlist` table with no public way out.
+
 
 **Start/end time stacked on phones — the 2-column grid could not fit (2026-08-26, same day):**
 - Aidan reported the End time box still running off the screen and **overlapping** Start

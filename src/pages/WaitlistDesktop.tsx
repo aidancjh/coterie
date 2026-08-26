@@ -625,7 +625,7 @@ export default function WaitlistDesktop() {
             ))}
           </div>
           <span style={{ fontSize: "clamp(13.5px,1vw,17px)", fontWeight: 600, color: "#5B6B7E" }}>
-            Join 400+ players already on the list
+            Join 700+ players already on the list
           </span>
         </div>
 
