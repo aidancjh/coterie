@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-24 (preview: real game details set — Kuo Chuan, Sun 6 Sep 6–8pm; preview sign-in now password-only, Google removed) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-26 (Positions needed always shown on game detail; date/time fields no longer overflow on iOS; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -139,6 +139,55 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Game form + detail: positions row, iOS date/time overflow, 15-minute times (2026-08-26):**
+- **"Positions needed" now always renders on `GameDetail.tsx`.** The row existed but was
+  gated on `positionsNeeded.length > 0`, so it vanished for every game whose host cleared
+  the chips (tapping the pre-selected "Any position" chip in `GameForm` sets `[]`, not
+  `["Any"]`), for all 16 seed games, and for anything posted before the field existed.
+  Empty now reads **"Any position"**, matching the always-shown cost row directly below
+  it: an absent row reads as "the host forgot to say", not "everyone is welcome".
+  No data or API change — `positionsNeeded` was persisting correctly all along
+  (`server/repo.js` maps `positions_needed` for list and detail alike, and `"Any"` is a
+  member of `POSITIONS` in `server/validation.js`, so it survives `gameInputFrom`).
+- **Date and time fields spilled off the right edge of the phone.** Confirmed on an
+  iPhone 17 simulator against a minimal repro: iOS WebKit sizes `input[type=date]` and
+  `input[type=time]` from their own shadow content and treats that width as a floor, so
+  the Tailwind `w-full` (width:100%) sets a width the control refuses to shrink to. The
+  Date field and the End time field in the two-column grid both ran past the screen; the
+  values also rendered centred rather than left-aligned.
+  Fix in `src/index.css`, next to the `.no-spinner` rules: drop the native appearance,
+  `min-width: 0`, `max-width: 100%`, and `text-align: left` + `margin: 0` on
+  `::-webkit-date-and-time-value`.
+  - **Scoped to `@supports (-webkit-touch-callout: none)` on purpose.** On desktop Chrome
+    `appearance: none` also removes the calendar/clock picker button, which is a real
+    control there. The feature query is Safari-only and matches the Capacitor WKWebView
+    shell as well as mobile Safari.
+  - **`color: inherit` is load-bearing.** Without it iOS paints the value in its own
+    link-blue once the native appearance is gone, so the two fields stop matching every
+    other input on the form. Verified before/after on the simulator.
+  - The native picker still opens after `appearance: none` — checked, not assumed.
+- **Start and end time now step in 15 minutes** (`GameForm.tsx`). `step={900}` narrows the
+  dropdown on desktop Chrome/Firefox, but **iOS ignores `step` entirely** — its wheel
+  still offered all 60 minutes on the simulator — so `snapToQuarterHour()` does the real
+  work. It rounds to the nearest quarter and **clamps** at 23:45 rather than wrapping, so
+  23:53 cannot roll over to 00:00 and silently move the game to the next day.
+  - **Snapped on `onBlur`, never on `onChange`.** The iOS wheel fires a change for every
+    minute it passes while the user is still spinning it; rewriting the value mid-spin
+    would fight the control under their finger. On blur the picker has closed, so the
+    correction lands once and is visible.
+  - `handleSubmit` snaps both values again as a backstop, for a submit reached without
+    ever blurring the field (Enter key, or a tap straight onto the button). Nothing off
+    the quarter hour can be saved.
+  - Legacy games keep their stored time until a host edits and blurs the field.
+- **Not verified in the running app:** signing in requires entering a password, which I
+  don't do. The iOS behaviour above was verified against a standalone repro in Mobile
+  Safari on the simulator, and `npx tsc --noEmit`, `npm run lint` (no new warnings) and
+  `npm run build` are all green — but the real Post-a-game form and game detail page
+  need a look on Aidan's phone.
+- No change to `live-game-website-preview`: since 2026-08-23 it is two screens and
+  contains neither `GameForm.tsx` nor `GameDetail.tsx`.
+
 
 **Railway topology, mapped and verified 2026-08-23** (the project names are Railway
 auto-generated and tell you nothing, so this is the map):

@@ -225,6 +225,11 @@ export default function GameForm({
       const preFilled = Math.max(0, playersHave - 1); // host occupies 1 real slot
       await onSubmit({
         ...form,
+        // Backstop: the fields snap on blur, but a submit can be reached
+        // without ever blurring them (Enter key, or a tap that lands straight
+        // on the button). Nothing off the quarter hour is ever saved.
+        time: snapToQuarterHour(form.time),
+        endTime: snapToQuarterHour(form.endTime),
         title: form.title.trim(),
         location: form.location.trim(),
         area: form.area.trim() || form.location.trim(),
@@ -391,8 +396,10 @@ export default function GameForm({
         <Field label="Start time">
           <input
             type="time"
+            step={QUARTER_HOUR_SECONDS}
             value={form.time}
             onChange={(e) => set("time", e.target.value)}
+            onBlur={(e) => set("time", snapToQuarterHour(e.target.value))}
             className={`${inputCls} min-w-0`}
           />
         </Field>
@@ -400,8 +407,10 @@ export default function GameForm({
           <input
             ref={endTimeRef}
             type="time"
+            step={QUARTER_HOUR_SECONDS}
             value={form.endTime}
             onChange={(e) => set("endTime", e.target.value)}
+            onBlur={(e) => set("endTime", snapToQuarterHour(e.target.value))}
             className={`${fieldCls(invalidFields.has("endTime"))} min-w-0`}
           />
         </Field>
@@ -506,6 +515,34 @@ export default function GameForm({
       </div>
     </form>
   );
+}
+
+// Games are scheduled on the quarter hour, so both time fields step in
+// 15-minute increments.
+//
+// `step` alone is not enough. It narrows the dropdown on desktop Chrome and
+// Firefox, but iOS ignores it completely — its wheel still offers all 60
+// minutes (verified on an iPhone 17 simulator), and a keyboard-entered or
+// pasted value can land off-step anywhere. So the value is snapped as well.
+//
+// Snapped on BLUR, never on change: the iOS wheel fires a change for every
+// minute it passes while the user is still spinning it, and rewriting the
+// value mid-spin fights the control under their finger. On blur the picker has
+// closed, so the correction is visible and lands once. handleSubmit snaps
+// again as a backstop, for the case where the field is never blurred.
+const QUARTER_HOUR_SECONDS = 900;
+
+function snapToQuarterHour(value: string): string {
+  const parts = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!parts) return value; // "" while the field is being cleared
+  const minutes = Number(parts[1]) * 60 + Number(parts[2]);
+  if (Number.isNaN(minutes)) return value;
+  // Clamp rather than wrap: 23:53 should become 23:45, not roll over to 00:00
+  // and silently move the game to the next day.
+  const snapped = Math.min(Math.round(minutes / 15) * 15, 23 * 60 + 45);
+  const hh = String(Math.floor(snapped / 60)).padStart(2, "0");
+  const mm = String(snapped % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 const inputCls =

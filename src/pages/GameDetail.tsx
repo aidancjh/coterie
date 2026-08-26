@@ -591,12 +591,16 @@ export default function GameDetail() {
             {game.rotationType}
           </InfoRow>
         )}
-        {game.positionsNeeded && game.positionsNeeded.length > 0 && (
-          <InfoRow icon={<TargetIcon className="h-4 w-4" />} label="Positions needed">
-            {/* "Any" on its own reads as an unfinished sentence here. */}
-            {game.positionsNeeded.map((p) => (p === "Any" ? "Any position" : p)).join(", ")}
-          </InfoRow>
-        )}
+        {/* Always shown, for the same reason as cost below: an absent row reads
+            as "the host forgot to say", when the real meaning is that every
+            position is welcome. Hosts who clear the chips, and every game
+            posted before the field existed, both land on the empty case. */}
+        <InfoRow icon={<TargetIcon className="h-4 w-4" />} label="Positions needed">
+          {/* "Any" on its own reads as an unfinished sentence here. */}
+          {game.positionsNeeded && game.positionsNeeded.length > 0
+            ? game.positionsNeeded.map((p) => (p === "Any" ? "Any position" : p)).join(", ")
+            : "Any position"}
+        </InfoRow>
         {/* Always shown — a free game reads "Free", never an absent row that
             could be mistaken for a missing price rather than no cost. */}
         <InfoRow icon={<CoinsIcon className="h-4 w-4" />} label="Cost per person">
