@@ -392,7 +392,14 @@ export default function GameForm({
         </p>
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* Stacked on phones, side by side only from lg up. Two time fields do
+          not fit next to each other on a phone: iOS gives input[type=time] an
+          intrinsic width of ~205px that width:100% cannot shrink it below, so
+          two of them plus the gap need ~422px while the phone shell only has
+          370px of content width — the boxes overflowed and visibly overlapped.
+          The appearance reset in index.css does remove that floor on current
+          iOS, but this layout means the fields fit even where it doesn't. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Field label="Start time">
           <input
             type="time"

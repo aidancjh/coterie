@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-26 (Positions needed always shown on game detail; date/time fields no longer overflow on iOS; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-08-26 (Positions needed always shown; start/end time stacked on phones after the 2-col grid still clipped on iOS; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -139,6 +139,36 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Start/end time stacked on phones — the 2-column grid could not fit (2026-08-26, same day):**
+- Aidan reported the End time box still running off the screen and **overlapping** Start
+  time after the appearance-reset fix shipped. Reproduced on an iPhone 17 simulator
+  against a harness using the app's own built CSS and the exact `Layout.tsx` shell
+  (`max-w-md` → `main px-4` → 370px of content at a 402pt viewport):
+  - With the appearance reset **active**: two-column tracks are 179px, gap 12px, fits.
+  - With the reset **not applying**: each input measures **205px** and the gap goes to
+    **−14px** — the boxes literally overlap, exactly the reported symptom. Two 205px
+    fields plus a 12px gap need ~422px; the phone has 370px. The two-column layout has
+    no slack at all, so anything that costs a few pixels breaks it visibly.
+- **`GameForm.tsx` now uses `grid-cols-1 gap-3 lg:grid-cols-2`** — stacked on phones,
+  side by side only from `lg`, where there is 640px of content width. Each field gets the
+  full 370px on a phone, which is comfortably more than the ~205px floor, so the layout
+  no longer depends on the appearance reset being honoured.
+- Verified in the shipping configuration on the simulator: container 370px, all three of
+  Date / Start time / End time measure exactly 370px wide, right edge 386 against a 402pt
+  viewport, no clipping and no sideways scroll.
+- **Ruled out along the way, so nobody re-tries them:** `min-w-0` on the grid *item*
+  (the `Field` label) does nothing — measured identical to without it; and
+  `box-sizing: border-box` on the input does nothing either. The width floor is the
+  control's own, and only the appearance reset or more room removes it.
+- **Caveat on the negative results:** they were produced by forcing
+  `appearance: auto !important` over the reset, which is a synthetic state no real iOS
+  reaches. Treat "the reset is ignored" as a stand-in for an older iOS, not as measured
+  old-iOS behaviour. The stacked layout is what makes that question moot.
+- If Aidan still sees the old layout, suspect the **service worker** before the CSS — the
+  installed PWA serves a precached `index.html` and only picks up a new build on its own
+  update check (see the 2026-08-09 service-worker entry below).
+
 
 **Game form + detail: positions row, iOS date/time overflow, 15-minute times (2026-08-26):**
 - **"Positions needed" now always renders on `GameDetail.tsx`.** The row existed but was
