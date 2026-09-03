@@ -197,8 +197,8 @@ export default function WaitlistMobile() {
     >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap');
-        .wl-page { min-height:100vh; min-height:100dvh; width:100%; background:#F5E8EA; display:flex; }
-        .wl-card { position:relative; width:100%; min-height:100vh; min-height:100dvh; margin:0; background:#160A0C; overflow:hidden; }
+        .wl-page { min-height:100vh; min-height:100svh; width:100%; background:#F5E8EA; display:flex; }
+        .wl-card { position:relative; width:100%; min-height:100vh; min-height:100svh; margin:0; background:#160A0C; overflow:hidden; }
         @media (min-width:640px) {
           .wl-card { width:min(94vw,430px); min-height:0; height:min(860px,92dvh); margin:auto; border-radius:36px; box-shadow:0 30px 80px rgba(15,22,34,.28); }
         }
@@ -368,7 +368,7 @@ export default function WaitlistMobile() {
               ))}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#5B6B7E" }}>
-              700+ players already on the list
+              900+ players already on the list
             </span>
             <button type="button" onClick={() => setFaqOpen(true)} className="wl-faq-btn">
               FAQ

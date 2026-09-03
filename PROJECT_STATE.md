@@ -140,12 +140,15 @@ Ordered by priority. Update status inline as these move.
 
 ## 5. Completed — do not redo
 
-**Waitlist social proof updated to 700+ (2026-08-26):**
-- `WaitlistMobile.tsx` and `WaitlistDesktop.tsx` said "400+ players already on the list".
-  Aidan's figure is now **700+**, so both read that. The number is still **hardcoded** in
-  those two files — it reads from nothing and will go stale again.
+**Waitlist social proof updated to 900+ (2026-08-30):**
+- `WaitlistMobile.tsx` and `WaitlistDesktop.tsx` said "700+ players already on the list";
+  both now read **900+**. The number is still **hardcoded** in those two files — it reads
+  from nothing and will go stale again.
 - Recorded counts so far: ~73 (Jul) -> 200 (2026-08-05) -> 400 -> 487 (2026-08-11) ->
-  700+ (2026-08-26, Aidan's own figure; the admin dashboard was not read for this).
+  700+ (2026-08-26, Aidan's own figure) -> 900+ (2026-08-30). **900+ is forward-looking**:
+  Aidan set it expecting to reach 900 "in the next few days", so the page currently claims
+  a number the list has not actually hit. Worth re-checking against the real count once
+  the public count endpoint below exists.
 - **Still open:** a public count endpoint so the page reads the live total and Aidan stops
   having to open admin to check it. Mockups for the display were designed on 2026-08-26
   (four options; the big-number treatment was the recommendation). Not built — the number
