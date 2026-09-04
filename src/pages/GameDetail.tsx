@@ -804,7 +804,7 @@ export default function GameDetail() {
                 <span className="text-sm font-medium text-slate-200">Your share</span>
                 <span
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                    iPaid ? "bg-emerald-100 text-emerald-800" : "bg-amber-500/15 text-amber-300"
+                    iPaid ? "bg-emerald-100 text-emerald-800" : "bg-amber-500/20 text-amber-800"
                   }`}
                 >
                   {iPaid ? "Paid ✓" : "Not paid yet"}

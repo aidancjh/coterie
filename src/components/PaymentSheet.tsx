@@ -245,7 +245,7 @@ export default function PaymentSheet({
               </div>
               {/* No card fields, on purpose — nothing here can settle a charge,
                   so asking for a card number would be collecting it for nothing. */}
-              <p className="mt-3 rounded-xl bg-amber-500/10 px-3.5 py-2.5 text-xs leading-relaxed text-amber-300">
+              <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs font-medium leading-relaxed text-amber-800">
                 Card payments aren't live yet — this is a preview of how they'll look.
                 For now, PayNow the host and mark yourself paid.
               </p>

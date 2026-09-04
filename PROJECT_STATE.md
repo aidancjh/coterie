@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-09-04 (Programs tab added; 20 Sep–Oct games seeded; PayNow-style payment sheet + host payment list; modal headings were invisible in production — fixed) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-09-04 (Programs tab; 20 Sep–Oct games seeded; payments + host paid-list; invisible modal headings fixed; past games no longer leak into Hosting/Interested; My Games gained summary tiles) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -139,6 +139,38 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Past games leaked into Hosting and Interested; My Games was bare (2026-09-04):**
+
+Aidan's review of the prototype, all four points actioned.
+
+- **Hosting showed every game he had ever hosted.** `BrowseGames`'s `myList` filtered
+  `hosting` on `g.hostId === me.id` with **no `isPast` check** — so Jia Min's 1/5/7 July
+  games were still listed in September, and being full-and-free they rendered grey, which
+  is what made the page look "plain". Both `hosting` and `upcoming` are now forward-looking.
+  `GameHistory` (`/history`) already collected hosted past games, so nothing was lost —
+  they simply moved to where they belonged.
+- **Interested kept past games too**, merely sorting them below the upcoming ones. Now
+  filtered out: a game you starred and then missed is history.
+- **My Games gained a 3-tile summary row.** Browse fills the top of the page with a search
+  box and a red Filters button; Upcoming/Hosting had a bare pill switcher above a list,
+  which is the "plain" Aidan reacted to. Hosting shows games / players in / collected of
+  due; Upcoming shows games / next up / what you owe. Tiles are brand-, emerald- and
+  amber-tinted. The old "N games" count line was dropped from these two views — the first
+  tile carries the count. Browse keeps its line (it has no tiles).
+- **Programs no longer shows capacity.** "4 spots left" was invented pressure on a listing
+  that cannot be booked, and a coached course is not a race for the last spot the way a
+  pickup game is. `spotsLeft`/`totalSpots` removed from the type and the data, not just
+  hidden.
+- **The amber preview banner was effectively invisible: measured 1.33:1 contrast** (WCAG
+  wants 4.5:1 for body text). `text-amber-300` is a pale highlighter yellow and — unlike
+  the slate scale — **`index.css` does not invert amber**, so it sat on its own 10% wash
+  almost unreadably. Now `text-amber-800` with a border: **6.51:1**. Same fix applied to
+  the payment sheet's card-preview note and the "Not paid yet" badge. `text-amber-300`
+  should not appear on a light surface again; `amber-700`/`amber-800` are the readable
+  choices (SpotsBadge already used `amber-700`).
+- Layout audit clean at 375 / 768 / 1440 across Programs, program detail, Interested,
+  History, Browse, Upcoming and Hosting.
 
 **Prototype build: Programs tab, upcoming games, payments (2026-09-04):**
 

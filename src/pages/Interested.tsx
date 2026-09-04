@@ -7,20 +7,15 @@ import GameCard from "../components/GameCard";
 import { GameCardSkeleton } from "../components/Skeleton";
 import { StarIcon } from "../components/icons";
 
-/** Games the user starred with the "Interested" button — upcoming first. */
+/** Games the user starred with the "Interested" button. Upcoming only — a game
+ *  you starred and then missed is history, and history lives on /history. */
 export default function Interested() {
   const { games, loading, error, reload } = useGames();
   const me = useProfile();
 
   const starred = games
-    .filter((g) => g.interestedIds.includes(me.id))
-    .sort((a, b) => {
-      // upcoming before past, then soonest first
-      const aPast = isPast(a.date) ? 1 : 0;
-      const bPast = isPast(b.date) ? 1 : 0;
-      if (aPast !== bPast) return aPast - bPast;
-      return (a.date + a.time).localeCompare(b.date + b.time);
-    });
+    .filter((g) => g.interestedIds.includes(me.id) && !isPast(g.date))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
   return (
     <div>

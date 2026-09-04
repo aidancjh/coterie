@@ -120,6 +120,15 @@ the game id, encodes nothing, and is labelled "Sample QR — not scannable yet"*
 tab is a preview and collects no card details. The host's list lives on `GameDetail` and
 in `ChatRoom`'s roster panel.
 
+**Amber text: use `amber-700`/`amber-800`, never `amber-300`.** `index.css` inverts the
+slate scale but **not** amber, so `text-amber-300` on a pale amber wash measured 1.33:1 —
+invisible. The Programs preview banner, the payment sheet's card note and the "Not paid
+yet" badge were all fixed on 2026-09-04.
+
+**Browse's `upcoming` and `hosting` views are forward-looking; past games live on
+`/history`.** `hosting` was missing its `isPast` filter until 2026-09-04 and listed every
+game a user had ever hosted. `Interested` is upcoming-only for the same reason.
+
 **Modal backdrops must use `.scrim-50/60/70`, never `bg-black/NN`.** `index.css` forces
 `.text-white` to real white inside any `bg-black*` element, which silently made every
 dialog heading white-on-white in production (fixed 2026-09-04). A backdrop is a scrim, not

@@ -70,22 +70,15 @@ export default function ProgramDetail() {
       <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
         <span
           className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${
-            p.kind === "Lesson" ? "bg-brand/10 text-brand" : "bg-sky-500/15 text-sky-300"
+            p.kind === "Lesson" ? "bg-brand/10 text-brand" : "bg-sky-500/15 text-sky-700"
           }`}
         >
           {p.kind === "Lesson" ? "Coaching" : "Club"}
         </span>
         <h1 className="mt-2 text-xl font-bold leading-tight text-white">{p.title}</h1>
         <p className="mt-1 text-sm text-slate-400">{p.summary}</p>
-        <div className="mt-3 flex items-baseline justify-between border-t border-slate-800 pt-3">
+        <div className="mt-3 border-t border-slate-800 pt-3">
           <span className="text-lg font-bold text-white">{priceLabel(p)}</span>
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              p.spotsLeft <= 3 ? "bg-amber-500/15 text-amber-300" : "bg-slate-800 text-slate-300"
-            }`}
-          >
-            {p.spotsLeft} of {p.totalSpots} spots left
-          </span>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGames } from "../hooks/useGames";
 import { useProfile } from "../hooks/useProfile";
 import { isInGame, isOnWaitlist, spotsLeft } from "../services/gamesService";
-import { isPast } from "../lib/format";
+import { formatMoney, isPast, relativeDay } from "../lib/format";
 import GameCard from "../components/GameCard";
 import { GameCardSkeleton } from "../components/Skeleton";
 import Modal from "../components/Modal";
@@ -248,10 +248,48 @@ export default function BrowseGames() {
     const sorted = [...mine].sort((a, b) =>
       (a.date + a.time).localeCompare(b.date + b.time)
     );
-    if (view === "hosting") return sorted.filter((g) => g.hostId === me.id);
+    // Both views are forward-looking. Hosting used to omit the isPast check, so
+    // every game you had EVER hosted stayed on the list — Jia Min's July games
+    // were still sitting under Hosting in September. Past games belong on
+    // /history (GameHistory already collects hosted ones), not here.
+    if (view === "hosting")
+      return sorted.filter((g) => g.hostId === me.id && !isPast(g.date));
     if (view === "upcoming") return sorted.filter((g) => !isPast(g.date));
     return [];
   }, [mine, view, me.id]);
+
+  // Summary tiles for the two "my games" views. Browse fills the top of the
+  // page with a search box and the Filters button; without them these views
+  // were a bare pill switcher above a list. These say something useful — for a
+  // host, how much money is actually in.
+  const myStats = useMemo(() => {
+    const count = myList.length;
+    if (view === "hosting") {
+      const players = myList.reduce((n, g) => n + g.players.length, 0);
+      const paying = myList.filter((g) => g.costPerPerson > 0);
+      const collected = paying.reduce(
+        (n, g) => n + g.players.filter((p) => p.paid === true).length * g.costPerPerson,
+        0
+      );
+      const due = paying.reduce((n, g) => n + g.players.length * g.costPerPerson, 0);
+      return [
+        { label: count === 1 ? "Game" : "Games", value: String(count), tone: "brand" },
+        { label: "Players in", value: String(players), tone: "emerald" },
+        ...(paying.length
+          ? [{ label: "Collected", value: formatMoney(collected), sub: `/${formatMoney(due)}`, tone: collected >= due ? "emerald" : "amber" }]
+          : []),
+      ];
+    }
+    const next = myList[0];
+    const unpaid = myList
+      .filter((g) => g.costPerPerson > 0 && g.players.some((p) => p.id === me.id && p.paid !== true))
+      .reduce((n, g) => n + g.costPerPerson, 0);
+    return [
+      { label: count === 1 ? "Game" : "Games", value: String(count), tone: "brand" },
+      ...(next ? [{ label: "Next up", value: relativeDay(next.date), tone: "emerald" }] : []),
+      ...(unpaid > 0 ? [{ label: "You owe", value: formatMoney(unpaid), tone: "amber" }] : []),
+    ];
+  }, [myList, view, me.id]);
 
   const activeCount = activeFilterCount(filters);
   const viewIndex = VIEWS.findIndex((v) => v.key === view);
@@ -427,11 +465,48 @@ export default function BrowseGames() {
             )}
           </div>
         ) : (
-          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
-            {myList.map((g) => (
-              <GameCard key={g.id} game={g} youAreIn={isInGame(g, me.id)} />
-            ))}
-          </div>
+          <>
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              {myStats.map((t) => (
+                <div
+                  key={t.label}
+                  className={`rounded-2xl px-3 py-2.5 ${
+                    t.tone === "brand"
+                      ? "bg-brand/10"
+                      : t.tone === "emerald"
+                      ? "bg-emerald-500/15"
+                      : "bg-amber-500/20"
+                  }`}
+                >
+                  <p
+                    className={`flex items-baseline gap-0.5 text-lg font-bold leading-tight ${
+                      t.tone === "brand"
+                        ? "text-brand"
+                        : t.tone === "emerald"
+                        ? "text-emerald-800"
+                        : "text-amber-800"
+                    }`}
+                  >
+                    <span className="truncate">{t.value}</span>
+                    {"sub" in t && t.sub && (
+                      <span className="shrink-0 text-xs font-semibold opacity-60">{t.sub}</span>
+                    )}
+                  </p>
+                  <p className="truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                    {t.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {/* No "N games" line here — the first tile already carries the count,
+                and Browse's version of that line exists because Browse has no
+                tiles. */}
+            <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+              {myList.map((g) => (
+                <GameCard key={g.id} game={g} youAreIn={isInGame(g, me.id)} />
+              ))}
+            </div>
+          </>
         ))}
 
       {showFilters && (

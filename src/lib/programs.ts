@@ -37,8 +37,6 @@ export interface Program {
   per: "session" | "course" | "month";
   /** Only meaningful for a course — how many sessions it runs for. */
   sessions?: number;
-  spotsLeft: number;
-  totalSpots: number;
   /** One line for the card. */
   summary: string;
   /** Longer copy for the detail page. */
@@ -63,8 +61,6 @@ export const PROGRAMS: Program[] = [
     price: 180,
     per: "course",
     sessions: 6,
-    spotsLeft: 4,
-    totalSpots: 16,
     summary: "Start from zero — passing, setting, serving, then real games.",
     about:
       "Six weeks that take you from never having touched a ball to holding your own in a pickup game. Weeks one to three are the three contacts — pass, set, hit — broken down slowly with lots of repetition. Weeks four to six put them together in small-sided games so you learn where to stand and when to move. You don't need to be fit, tall, or sporty, and nobody in the group will have played before either.",
@@ -89,8 +85,6 @@ export const PROGRAMS: Program[] = [
     level: "High Beginner and up",
     price: 45,
     per: "session",
-    spotsLeft: 7,
-    totalSpots: 14,
     summary: "The two skills that decide most pickup rallies, drilled hard for two hours.",
     about:
       "A single-session clinic on the two things that decide most social games: a serve that lands in, and a first contact that gives your setter something to work with. Expect a lot of repetition and video on your own platform and float serve. Come if you can already keep a rally going but your serve goes long or your passes shoot sideways.",
@@ -116,8 +110,6 @@ export const PROGRAMS: Program[] = [
     price: 240,
     per: "course",
     sessions: 4,
-    spotsLeft: 2,
-    totalSpots: 10,
     summary: "Hands, footwork and decision-making for anyone who keeps getting handed the setter role.",
     about:
       "Most pickup setters got the job because nobody else wanted it. Four weeks to actually learn it: clean hands that don't get called, footwork to the target, and the decisions — when to push the middle, when to go back-set, when to just give your hitter a high ball and let them work. Small group so everyone sets several hundred balls a night.",
@@ -142,8 +134,6 @@ export const PROGRAMS: Program[] = [
     level: "Any level, indoor experience helpful",
     price: 55,
     per: "session",
-    spotsLeft: 6,
-    totalSpots: 12,
     summary: "Sand is a different sport — movement, wind, and two-player defence.",
     about:
       "Everything you know from indoor works differently on sand: you can't jump the same, you can't run the same, and with two players there's nowhere to hide. This session covers shuffling instead of running, reading the wind on a serve, the shots that actually score in a 2s game, and how to block-and-cover with one partner. Bring sunscreen and water.",
@@ -168,8 +158,6 @@ export const PROGRAMS: Program[] = [
     level: "High Intermediate and up",
     price: 90,
     per: "month",
-    spotsLeft: 3,
-    totalSpots: 40,
     summary: "Twice-weekly competitive sessions with a fixed squad and a league team.",
     about:
       "The most competitive club on the list. Two structured sessions a week with proper warm-ups, a 5-1 system and real scoring, plus an A team that plays in the national club league. Members are expected at one of the two sessions most weeks — this isn't drop-in. There's a trial night before you commit, and the organisers will tell you honestly if it's too fast for you right now.",
@@ -194,8 +182,6 @@ export const PROGRAMS: Program[] = [
     level: "All levels",
     price: 45,
     per: "month",
-    spotsLeft: 12,
-    totalSpots: 60,
     summary: "The biggest social club in the west. Turn up as often or as little as you like.",
     about:
       "Deliberately unserious. Two sessions a week, no attendance expectations, and the courts are split by level so a first-timer and a former school player both get a decent game. About half the members joined knowing nobody. There's a group chat that mostly talks about where to eat afterwards.",
@@ -220,8 +206,6 @@ export const PROGRAMS: Program[] = [
     level: "All levels",
     price: 35,
     per: "month",
-    spotsLeft: 9,
-    totalSpots: 30,
     summary: "Weekend mornings on the sand, finished before the heat arrives.",
     about:
       "Early starts by design — you're off the sand by ten and the rest of the weekend is yours. Nets go up at 7.30, we rotate 2s and 4s depending on who turns up, and there's breakfast at the hawker centre afterwards for anyone who wants it. Levels are genuinely mixed and the regulars are good about pairing a beginner with someone experienced.",
@@ -246,8 +230,6 @@ export const PROGRAMS: Program[] = [
     level: "All levels, women only",
     price: 40,
     per: "month",
-    spotsLeft: 8,
-    totalSpots: 32,
     summary: "A women's club in the north, built around people who started as adults.",
     about:
       "Started because the north had nothing for women who picked the sport up after school. Most members began in their twenties or thirties and several started at the club itself. One session a week, coached warm-up for the first half hour, then games. Bring a friend or come alone — someone will look out for you either way.",
