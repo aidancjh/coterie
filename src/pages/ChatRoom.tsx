@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Game, Message } from "../types";
-import { deleteMessage, getGame, getMessages, sendMessage } from "../services/gamesService";
+import { deleteMessage, getGame, getMessages, sendMessage, setMemberPaid } from "../services/gamesService";
 import { useAuth } from "../auth/AuthContext";
-import { formatDate, timeAgo } from "../lib/format";
+import { formatDate, formatMoney, timeAgo } from "../lib/format";
 import { markChatSeen } from "../lib/chatSeen";
-import { IconChip, LockIcon } from "../components/icons";
+import { IconChip, LockIcon, UsersIcon } from "../components/icons";
 import { Spinner } from "../components/Skeleton";
 import ErrorModal from "../components/ErrorModal";
 
@@ -21,6 +21,10 @@ export default function ChatRoom() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
+  // Who's in here, and — when the court costs money — who has settled up.
+  // Collapsed by default so it never pushes the messages off screen.
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [busyMember, setBusyMember] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -28,6 +32,19 @@ export default function ChatRoom() {
   useEffect(() => {
     getGame(id).then((g) => setGame(g ?? null));
   }, [id]);
+
+  // Host ticking a payment off from inside the chat, which is where the
+  // "sent!" message arrives in the first place.
+  async function handleTogglePaid(memberId: string, next: boolean) {
+    setBusyMember(memberId);
+    try {
+      setGame(await setMemberPaid(id, memberId, next));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't update payment.");
+    } finally {
+      setBusyMember("");
+    }
+  }
 
   // Load + poll messages.
   useEffect(() => {
@@ -120,7 +137,82 @@ export default function ChatRoom() {
             </button>
           )}
         </div>
+        {game && (
+          <button
+            onClick={() => setRosterOpen((v) => !v)}
+            aria-expanded={rosterOpen}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+              rosterOpen ? "bg-brand text-white" : "border border-slate-700 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <UsersIcon className="h-3.5 w-3.5" aria-hidden />
+            {game.players.length}
+          </button>
+        )}
       </div>
+
+      {/* Roster panel — plain list of who's in, plus the payment column when
+          the game costs something. The host can tick people off here. */}
+      {game && rosterOpen && (
+        <div className="mb-3 rounded-2xl border border-slate-800 bg-slate-900 p-3.5 shadow-sm">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-white">
+              In this game ({game.players.length}/{game.totalSlots})
+            </h2>
+            {game.costPerPerson > 0 && (
+              <span className="text-xs font-medium text-slate-400">
+                {formatMoney(
+                  game.players.filter((pl) => pl.paid === true).length * game.costPerPerson
+                )}{" "}
+                of {formatMoney(game.players.length * game.costPerPerson)} in
+              </span>
+            )}
+          </div>
+          <ul className="divide-y divide-slate-800">
+            {game.players.map((pl) => {
+              const isPaid = pl.paid === true;
+              return (
+                <li key={pl.id} className="flex items-center gap-3 py-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
+                    {pl.id === game.hostId && "★ "}
+                    {pl.name}
+                    {pl.id === user?.id && " (you)"}
+                  </span>
+                  {game.costPerPerson > 0 &&
+                    (isHost ? (
+                      <button
+                        onClick={() => handleTogglePaid(pl.id, !isPaid)}
+                        disabled={busyMember === pl.id}
+                        aria-pressed={isPaid}
+                        aria-label={`${pl.name} — ${isPaid ? "paid, tap to undo" : "not paid, tap to mark paid"}`}
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition active:scale-95 disabled:opacity-50 ${
+                          isPaid
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "border border-slate-700 text-slate-400 hover:bg-slate-800"
+                        }`}
+                      >
+                        {isPaid ? "Paid ✓" : "Not paid"}
+                      </button>
+                    ) : (
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          isPaid ? "bg-emerald-100 text-emerald-800" : "bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        {isPaid ? "Paid ✓" : "Not paid"}
+                      </span>
+                    ))}
+                </li>
+              );
+            })}
+          </ul>
+          {game.waitlist.length > 0 && (
+            <p className="mt-2.5 border-t border-slate-800 pt-2.5 text-xs text-slate-400">
+              Waitlist: {game.waitlist.map((w) => w.name).join(", ")}
+            </p>
+          )}
+        </div>
+      )}
 
       {accessDenied ? (
         <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-700 bg-slate-800 py-16 text-center">

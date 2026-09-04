@@ -87,6 +87,24 @@ body,
   color: #ffffff;
 }
 
+/* A modal backdrop is a SCRIM, not a text surface.
+
+   Written 2026-09-04. Backdrops used bg-black/NN, so the bg-black rule above
+   matched every .text-white inside the dialog — including the panel's own
+   heading, which sits on the panel's light bg-slate-900. Result: "Join this
+   game?", "Leave this game?", "Delete this game?", "Cancel this series?" and
+   the post sheet's "What do you want to post?" all rendered white-on-white and
+   were invisible in production. (The filters panel had already worked around it
+   locally by using text-slate-100 instead.)
+
+   These paint the identical scrim without putting "bg-black" in the class
+   attribute, so the panel above keeps light-theme ink. Genuine black surfaces —
+   the avatar lightbox, the badge over a banner image — still use bg-black and
+   still get white text, which is correct for them. */
+.scrim-50 { background-color: rgb(0 0 0 / 0.5); }
+.scrim-60 { background-color: rgb(0 0 0 / 0.6); }
+.scrim-70 { background-color: rgb(0 0 0 / 0.7); }
+
 body {
   margin: 0;
   background: #ffffff;

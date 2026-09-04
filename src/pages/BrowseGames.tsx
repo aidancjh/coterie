@@ -472,16 +472,18 @@ function FilterModal({
   return (
     <Modal
       onClose={onClose}
-      backdropClassName="bg-black/50"
+      backdropClassName="scrim-50"
       panelClassName="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-slate-900 shadow-xl animate-pop-in"
       labelledBy="filters-modal-title"
     >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-          {/* text-slate-100, not text-white: this panel sits inside a bg-black/50
-              backdrop, and index.css turns any .text-white nested in a bg-black*
-              element real white — which made this title invisible on the white
-              panel. slate-100 is dark ink in the inverted scale. */}
+          {/* text-slate-100 rather than text-white. This was originally a
+              workaround: the backdrop was bg-black/50, and index.css forces any
+              .text-white inside a bg-black* element to real white, which made
+              the title invisible on the white panel. Backdrops are .scrim-*
+              since 2026-09-04 so text-white would now work here too — kept as
+              slate-100 because it renders identically and needs no re-check. */}
           <p id="filters-modal-title" className="text-base font-bold text-slate-100">Filters</p>
           <button
             onClick={onClose}

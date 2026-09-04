@@ -14,6 +14,7 @@ import {
   SearchIcon,
   SettingsIcon,
   StarIcon,
+  TrophyIcon,
   UserIcon,
 } from "./icons";
 import { Logo } from "./Logo";
@@ -27,6 +28,7 @@ import { Logo } from "./Logo";
 // caller falls back to whichever tab you were already on.
 function tabRootFor(pathname: string): string | null {
   if (pathname === "/" || pathname.startsWith("/game") || pathname === "/create") return "/";
+  if (pathname.startsWith("/programs")) return "/programs";
   if (pathname.startsWith("/chats")) return "/chats";
   if (pathname.startsWith("/profile")) return "/profile";
   return null;
@@ -45,7 +47,7 @@ function useActiveTab(pathname: string): string | null {
   return root ?? lastRealTab.current;
 }
 
-const TAB_SLOT: Record<string, number> = { "/": 0, "/chats": 1, "/profile": 3 };
+const TAB_SLOT: Record<string, number> = { "/": 0, "/programs": 1, "/chats": 3, "/profile": 4 };
 
 function tabSlotFor(pathname: string): number {
   const root = tabRootFor(pathname);
@@ -54,9 +56,10 @@ function tabSlotFor(pathname: string): number {
 
 const leftTabs = [
   { to: "/", label: "Browse", Icon: SearchIcon },
-  { to: "/chats", label: "Chats", Icon: ChatIcon },
+  { to: "/programs", label: "Programs", Icon: TrophyIcon },
 ];
 const rightTabs = [
+  { to: "/chats", label: "Chats", Icon: ChatIcon },
   { to: "/profile", label: "Profile", Icon: UserIcon },
 ];
 
@@ -80,7 +83,7 @@ function PostSheet({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 scrim-50"
         onClick={onClose}
       />
 
@@ -249,6 +252,7 @@ export default function Layout() {
         <div className="hidden items-center gap-1 lg:flex">
           {[
             { to: "/", label: "Browse" },
+            { to: "/programs", label: "Programs" },
             { to: "/chats", label: "Chats" },
             { to: "/profile", label: "Profile" },
           ].map((l) => (
@@ -356,7 +360,7 @@ export default function Layout() {
           {/* Sliding pill — same style as My Games tab switcher */}
           {activeSlot >= 0 && (
             <div
-              className="pointer-events-none absolute inset-y-1 left-0 w-1/4 px-1.5"
+              className="pointer-events-none absolute inset-y-1 left-0 w-1/5 px-1.5"
               style={{
                 transform: `translateX(${activeSlot * 100}%)`,
                 transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",

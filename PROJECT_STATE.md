@@ -9,7 +9,7 @@
 > finished, scope cut. Never commit a code change without updating this file.
 > Update protocol and rationale at the bottom.
 
-**Last updated:** 2026-08-26 (waitlist social proof 400+ -> 700+; Positions needed always shown; start/end time stacked on phones; times snap to 15 minutes) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
+**Last updated:** 2026-09-04 (Programs tab added; 20 Sep–Oct games seeded; PayNow-style payment sheet + host payment list; modal headings were invisible in production — fixed) · **Branch:** `main` · **Status:** deployed, in testing, not publicly launched
 
 ---
 
@@ -139,6 +139,71 @@ Ordered by priority. Update status inline as these move.
 ---
 
 ## 5. Completed — do not redo
+
+**Prototype build: Programs tab, upcoming games, payments (2026-09-04):**
+
+Aidan asked for a demonstrable prototype he can show people from the iOS Simulator.
+Four pieces, all shipped.
+
+- **20 upcoming games seeded — `server/seedUpcoming.js`.** Production had **93 past games
+  and zero upcoming**, so Browse was empty for every account and the join → pay → chat path
+  had nothing to demo against. 20 games across 11 Sep – 31 Oct 2026 (**18 of them in
+  October**), at real venues from `src/lib/courts.ts` with the region/area that file assigns,
+  varied skill/type/gender/time/cost, rosters 33–100% full, one game deliberately full so the
+  waitlist path is demoable, plus 55 seeded chat messages so Chats isn't a list of empty rooms.
+  Fixed ids (`game_up_1`…`game_up_20`), fixed dates and a seeded PRNG, so it is idempotent and
+  identical on every run — an offset-from-today date would reshuffle every game on each deploy.
+  Runs from `start()` in `server/index.js` under the same `SEED_DEMO` flag as the rest.
+  **To retire before launch:** stop calling it and delete `id LIKE 'game_up_%'`.
+- **`game_up_3` is hosted by Jia Min (`1@demo.test`)** with 6 of 10 players paid — that is the
+  account and game for demoing the host's payment list.
+- **Programs tab — a 4th nav destination.** Bottom bar is now Browse · Programs · + · Chats ·
+  Profile (five columns, sliding pill moved from `w-1/4` to `w-1/5`); desktop nav gained the
+  same link. `src/pages/Programs.tsx` (list, All/Coaching/Clubs filter) and
+  `ProgramDetail.tsx` (coach, level, venue, schedule, what's included, dates, Register).
+  Data is **prototype-only** — 8 invented lessons/clubs in `src/lib/programs.ts`, no table, no
+  endpoint, no booking. The page says so in an amber banner and the register flow says
+  "register your interest", never "you're enrolled". **Do not remove that banner while the
+  data is fake.**
+- **Payments — `src/components/PaymentSheet.tsx`.** Reached from the post-join confirmation
+  ("Pay $X now"), the payments card, or the chat. Shows amount, host, reference and a PayNow
+  QR. **Coterie moves no money** — players transfer directly, and "I've transferred" sets the
+  `game_members.paid` flag that already existed (`POST /games/:id/members/:memberId/paid`
+  lets a player set their own). The QR is **drawn from the game id, encodes nothing, and is
+  labelled "Sample QR — not scannable yet"** on the face of the sheet; a convincing unlabelled
+  payment QR is something a real person could scan and lose money to. The card tab is a
+  preview and **collects no card details**.
+- **Host payment list.** `GameDetail.tsx` gained a Payments card for any game with a cost:
+  the host sees "$54 of $90 collected" and every player with a tappable Paid / Not paid badge;
+  a player sees only their own line and a Pay button. Same list is reachable from inside the
+  chat — `ChatRoom.tsx` gained a collapsible roster panel (member count button in the header)
+  showing who's in, who's paid and the waitlist, because "sent!" arrives in the chat.
+- Verified at 375 / 768 / 1440 against production data. `scripts/layout-audit.js` is clean on
+  every new and touched page. The one remaining finding — 60–290px of empty background under
+  the chat message list — is the auditor's card heuristic firing on a `flex-1` scroll region
+  and predates this work.
+- New `npm run dev:web:live` (`DEV_API_TARGET=https://coterie.com.de vite`) runs the frontend
+  alone against deployed data. There is no local database, and port 4000 locally belongs to
+  the **preview fork's** API — pointing at it silently shows the wrong app's 8 games.
+
+**Every modal heading was invisible in production — fixed (2026-09-04):**
+
+Found while building the payment sheet, and **confirmed live on coterie.com.de before the
+fix**: "Join this game?", "Leave this game?", "Delete this game?", "Cancel this series?" and
+the post sheet's "What do you want to post?" all rendered **white on a white panel**.
+
+`index.css` remaps `.text-white` to dark ink, except inside a coloured surface, where it
+forces real white — and that exception matched `bg-black*`. Modal backdrops were
+`bg-black/50|60|70`, so every `.text-white` *inside the dialog* — including the panel's own
+heading, sitting on the panel's light `bg-slate-900` — was forced white. The filters panel had
+already worked around it locally with `text-slate-100`; nothing else had.
+
+Fix: a backdrop is a **scrim, not a text surface**. New `.scrim-50/60/70` in `index.css` paint
+the identical overlay without putting `bg-black` in the class attribute. Swapped into `Modal`'s
+default and all 8 backdrops. Genuine black surfaces (the avatar lightbox, the badge over a
+banner image) still use `bg-black` and still get white text, which is correct for them.
+Also `Modal` now focuses with `{ preventScroll: true }`, so a panel tall enough to scroll
+inside itself no longer opens already scrolled past its own heading.
 
 **Waitlist social proof updated to 900+ (2026-08-30):**
 - `WaitlistMobile.tsx` and `WaitlistDesktop.tsx` said "700+ players already on the list";

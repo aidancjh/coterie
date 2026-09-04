@@ -29,6 +29,7 @@ import { hashPassword, verifyPassword, signToken, requireAuth, optionalAuth, ver
 import * as repo from "./repo.js";
 import { initSchema, query } from "./db.js";
 import { seedIfEmpty, syncDemoPasswords, syncDemoData, seedPastData, seedEngagement } from "./seed.js";
+import { seedUpcomingGames } from "./seedUpcoming.js";
 import {
   validateBody,
   signupSchema,
@@ -1363,6 +1364,10 @@ async function start() {
     await syncDemoData();
     await seedPastData();
     await seedEngagement();
+    // Sep–Oct 2026 games. Separate from seedPastData because Browse was empty
+    // (93 past games, 0 upcoming) and the join → pay → chat path had nothing
+    // to demo against. Idempotent; see server/seedUpcoming.js.
+    await seedUpcomingGames();
   } else {
     console.log("[seed] SEED_DEMO=false — skipping demo users and sample data");
   }

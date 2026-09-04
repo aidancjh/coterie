@@ -24,13 +24,14 @@ dropped. Commit it together with the code. Never leave a change unrecorded.
 ```bash
 npm run dev          # Start both API (port 4000) and Vite dev server (port 5173) concurrently
 npm run dev:api      # API only — node --watch with .env
-npm run dev:web      # Vite only
+npm run dev:web      # Vite only (proxies /api to localhost:4000)
+npm run dev:web:live # Vite only, /api proxied to the DEPLOYED API — no local DB needed
 npm run build        # TypeScript check + Vite production build
 npm run start        # Production server (Railway uses this)
 npx tsc --noEmit     # Type-check without building
 ```
 
-Local dev requires a `DATABASE_URL` in `.env`. The Railway-hosted Postgres is production-only; there is no local DB instance. You can still run `npm run dev:web` to test the frontend UI without the API.
+Local dev requires a `DATABASE_URL` in `.env`. The Railway-hosted Postgres is production-only; there is no local DB instance. To check the UI against real data, run **`npm run dev:web:live`** — it sets `DEV_API_TARGET` so Vite proxies `/api` to `https://coterie.com.de` (the CORS allowlist permits any `http://localhost` origin). Do **not** use plain `npm run dev:web` for this: port 4000 on Aidan's Mac belongs to the **preview fork's** API, so the page silently renders that other app's handful of games.
 
 ## Architecture
 
@@ -45,6 +46,7 @@ Local dev requires a `DATABASE_URL` in `.env`. The Railway-hosted Postgres is pr
 | `repo.js` | All SQL queries — single data-access layer |
 | `auth.js` | `hashPassword`, `verifyPassword`, `signToken`, `requireAuth` middleware (JWT in `Authorization: Bearer`) |
 | `seed.js` | `seedIfEmpty()` (once, empty DB), `syncDemoPasswords()` (every startup), `seedPastData()` (idempotent; runs on every startup **and** via the admin endpoint) |
+| `seedUpcoming.js` | `seedUpcomingGames()` — 20 games across Sep–Oct 2026 with rosters, paid flags and chat openers. Idempotent (fixed ids `game_up_*`, fixed dates, seeded PRNG). Added 2026-09-04 because the DB had 93 past games and **zero** upcoming ones. Delete `id LIKE 'game_up_%'` to retire. |
 | `admin-server.js` | Standalone admin API — separate Railway deploy, separate JWT (`ADMIN_JWT_SECRET`), own Google OAuth callback (lookup-only, never creates users), own rate limiter and DB pool cap. Mounts `adminRoutes.js`. |
 
 Schema tables: `users`, `games`, `game_members`, `game_interest`, `game_comments`, `messages`, `game_reviews`, `player_ratings`, `notifications`, `feedback`, `highlights`, `highlight_likes`, `highlight_comments`, `password_reset_tokens`, `idempotency_keys`, `waitlist`.
@@ -86,8 +88,9 @@ capped connection pool (`DB_POOL_MAX`) so admin traffic can never starve the con
 Pages: `BrowseGames` (includes the Upcoming/Hosting views), `GameHistory`
 (past games, at `/history`, linked from Profile), `GameDetail`,
 `CreateGame`, `EditGame`, `Interested` (starred games), `Chats`, `ChatRoom`,
-`Notifications`, `UserProfile`, `Profile`, `Settings`, `Auth`, `Onboarding`,
-`Privacy`, `Waitlist*`. (Marketplace and highlight *posting* were removed
+`Programs` + `ProgramDetail` (coaching courses and clubs — **prototype data
+only**, see below), `Notifications`, `UserProfile`, `Profile`, `Settings`,
+`Auth`, `Onboarding`, `Privacy`, `Waitlist*`. (Marketplace and highlight *posting* were removed
 2026-07-23 when the app adopted the preview's frontend; highlight *viewing*
 remains.)
 
@@ -103,6 +106,24 @@ mirror across** — the pages, components and hooks they touch don't exist
 there. It does NOT auto-deploy on push: deploy from that folder with
 `railway up --service "live game preview" --ci` (the service was renamed from `web`;
 `--service web` now fails with "Service not found").
+
+**Programs is not real yet.** `src/lib/programs.ts` holds 8 invented lessons and clubs;
+there is no `programs` table, no endpoint and no booking. The list page carries an amber
+"Preview — these are sample listings" banner and the register flow says *register your
+interest*, never *you're enrolled*. **Don't remove that banner while the data is fake.**
+
+**Payments: Coterie moves no money.** Players PayNow the host directly.
+`PaymentSheet.tsx` shows the amount, host and reference; *I've transferred* sets the
+long-existing `game_members.paid` flag via `POST /games/:id/members/:memberId/paid` (a
+player may set their own; only the host may set anyone else's). The QR is **drawn from
+the game id, encodes nothing, and is labelled "Sample QR — not scannable yet"**. The card
+tab is a preview and collects no card details. The host's list lives on `GameDetail` and
+in `ChatRoom`'s roster panel.
+
+**Modal backdrops must use `.scrim-50/60/70`, never `bg-black/NN`.** `index.css` forces
+`.text-white` to real white inside any `bg-black*` element, which silently made every
+dialog heading white-on-white in production (fixed 2026-09-04). A backdrop is a scrim, not
+a text surface. Genuine black surfaces still use `bg-black` and still want white text.
 
 `GameDetail.tsx` fetches `/api/games/:id/ratables` when the game is in the past and the user was a player — renders inline star pickers to rate teammates using `api.post` directly (not via gamesService).
 
@@ -124,7 +145,7 @@ To seed past games + fake reviews/ratings into an already-populated DB: log in a
 
 Railway auto-deploys on every push to `main` on GitHub. No manual steps needed — just `git push`. Deploy takes ~2 min. Production URL: `https://coterie.com.de`.
 
-On startup the server calls, in order: `initSchema()` → `seedIfEmpty()` → `syncDemoPasswords()` → `seedPastData()` → `promoteAdminsFromEnv()` (see `start()` in `server/index.js`).
+On startup the server calls, in order: `initSchema()` → `seedIfEmpty()` → `syncDemoPasswords()` → `syncDemoData()` → `seedPastData()` → `seedEngagement()` → `seedUpcomingGames()` → `promoteAdminsFromEnv()` (see `start()` in `server/index.js`).
 
 ## Key conventions
 

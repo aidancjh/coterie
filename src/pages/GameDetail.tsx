@@ -11,6 +11,7 @@ import {
   joinGame,
   leaveGame,
   promoteMember,
+  setMemberPaid,
     spotsLeft,
   subscribe,
   toggleInterested,
@@ -24,6 +25,7 @@ import Modal from "../components/Modal";
 import { api, API_ORIGIN } from "../lib/api";
 import { celebrate } from "../lib/celebrate";
 import ErrorModal from "../components/ErrorModal";
+import PaymentSheet from "../components/PaymentSheet";
 import {
   ArrowUpIcon,
   CalendarIcon,
@@ -63,6 +65,10 @@ export default function GameDetail() {
   const [seriesModal, setSeriesModal] = useState(false);
   const [cancelingSeries, setCancelingSeries] = useState(false);
   const [rosterError, setRosterError] = useState("");
+  // The pay sheet is opened from three places: the post-join confirmation,
+  // the payments card, and the primary action row — so it lives up here.
+  const [payOpen, setPayOpen] = useState(false);
+  const [payingFor, setPayingFor] = useState("");
 
   useEffect(() => {
     const refresh = () => getGame(id).then((g) => setGame(g ?? null));
@@ -103,6 +109,11 @@ export default function GameDetail() {
   const isHost = game.hostId === me.id;
   const interested = game.interestedIds.includes(me.id);
   const past = isPast(game.date);
+  // Payment state, derived rather than stored — game_members.paid is the only
+  // source of truth and it rides along on every player in the game payload.
+  const paidCount = game.players.filter((p) => p.paid === true).length;
+  const unpaidCount = game.players.length - paidCount;
+  const iPaid = game.players.find((p) => p.id === me.id)?.paid === true;
 
   // Whether leaving now would count against the player's participation rate.
   // Deliberately mirrors hoursUntilStart() + LATE_LEAVE_HOURS in server/repo.js,
@@ -166,6 +177,19 @@ export default function GameDetail() {
     );
   };
 
+  // Host ticking someone off their payment list. Optimism isn't worth it here —
+  // the list re-renders from the game the server returns, so a failed toggle
+  // never leaves a player looking paid when they aren't.
+  const handleTogglePaid = (memberId: string, next: boolean) => {
+    setRosterError("");
+    setPayingFor(memberId);
+    setMemberPaid(game.id, memberId, next)
+      .catch((err) =>
+        setRosterError(err instanceof Error ? err.message : "Couldn't update payment.")
+      )
+      .finally(() => setPayingFor(""));
+  };
+
   const handleShare = async () => {
     const text = `${game.title} — ${formatDate(game.date)} at ${formatTime(
       game.time
@@ -217,7 +241,7 @@ export default function GameDetail() {
       {joinModal && (
         <Modal
           onClose={() => { if (!joining) setJoinModal(null); }}
-          backdropClassName="bg-black/70"
+          backdropClassName="scrim-70"
           panelClassName="animate-pop-in w-full max-w-sm overflow-hidden rounded-3xl bg-slate-900 shadow-2xl"
           labelledBy="join-modal-title"
         >
@@ -339,14 +363,33 @@ export default function GameDetail() {
                     {game.notes}
                   </div>
                 )}
-                {/* Actions */}
-                <div className="px-8 pb-2 pt-5">
-                  <button
-                    onClick={() => setJoinModal(null)}
-                    className="block w-full rounded-2xl bg-brand py-3.5 text-center text-sm font-semibold text-white transition hover:bg-brand-dark"
-                  >
-                    Done
-                  </button>
+                {/* Actions — a paying game hands you straight to the host's
+                    PayNow details, because the moment you've just committed is
+                    the moment you'll actually transfer. */}
+                <div className="space-y-2 px-8 pb-2 pt-5">
+                  {joinModal === "confirmed" && game.costPerPerson > 0 ? (
+                    <>
+                      <button
+                        onClick={() => { setJoinModal(null); setPayOpen(true); }}
+                        className="block w-full rounded-2xl bg-brand py-3.5 text-center text-sm font-semibold text-white transition hover:bg-brand-dark active:scale-[0.97]"
+                      >
+                        Pay {formatMoney(game.costPerPerson)} now
+                      </button>
+                      <button
+                        onClick={() => setJoinModal(null)}
+                        className="block w-full rounded-2xl border border-slate-700 py-3 text-center text-sm font-medium text-slate-300 transition hover:bg-slate-800 active:scale-[0.97]"
+                      >
+                        Pay later
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setJoinModal(null)}
+                      className="block w-full rounded-2xl bg-brand py-3.5 text-center text-sm font-semibold text-white transition hover:bg-brand-dark"
+                    >
+                      Done
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -357,11 +400,15 @@ export default function GameDetail() {
         </Modal>
       )}
 
+      {payOpen && (
+        <PaymentSheet game={game} meId={me.id} onClose={() => setPayOpen(false)} />
+      )}
+
       {/* Leave confirmation modal */}
       {leaveModal && (
         <Modal
           onClose={() => { if (!leaving) setLeaveModal(false); }}
-          backdropClassName="bg-black/70"
+          backdropClassName="scrim-70"
           panelClassName="animate-pop-in w-full max-w-sm overflow-hidden rounded-3xl bg-slate-900 shadow-2xl"
           labelledBy="leave-modal-title"
         >
@@ -425,7 +472,7 @@ export default function GameDetail() {
       {deleteModal && (
         <Modal
           onClose={() => { if (!deleting) setDeleteModal(false); }}
-          backdropClassName="bg-black/70"
+          backdropClassName="scrim-70"
           panelClassName="animate-pop-in w-full max-w-sm overflow-hidden rounded-3xl bg-slate-900 shadow-2xl"
           labelledBy="delete-modal-title"
         >
@@ -474,7 +521,7 @@ export default function GameDetail() {
       {seriesModal && (
         <Modal
           onClose={() => { if (!cancelingSeries) setSeriesModal(false); }}
-          backdropClassName="bg-black/70"
+          backdropClassName="scrim-70"
           panelClassName="animate-pop-in w-full max-w-sm overflow-hidden rounded-3xl bg-slate-900 shadow-2xl"
           labelledBy="series-modal-title"
         >
@@ -685,6 +732,102 @@ export default function GameDetail() {
           </div>
         )}
       </div>
+
+      {/* Payments — only for a game that actually costs something. The host
+          sees everyone and can tick people off; a player sees only their own
+          line. Coterie never touches the money (see PaymentSheet), so this is
+          a shared ledger, not a checkout. */}
+      {!past && game.costPerPerson > 0 && (joined || isHost) && (
+        <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-white">Payments</h2>
+            <span className="text-xs font-medium text-slate-400">
+              {formatMoney(game.costPerPerson)} per person
+            </span>
+          </div>
+
+          {isHost ? (
+            <>
+              {/* Collected so far — the number a host actually wants. */}
+              <div className="mb-3 flex items-baseline justify-between rounded-xl bg-slate-800 px-3.5 py-3">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Collected
+                </span>
+                <span className="text-lg font-bold text-white">
+                  {formatMoney(paidCount * game.costPerPerson)}
+                  <span className="ml-1 text-xs font-medium text-slate-400">
+                    of {formatMoney(game.players.length * game.costPerPerson)}
+                  </span>
+                </span>
+              </div>
+
+              <ul className="divide-y divide-slate-800">
+                {game.players.map((pl) => {
+                  const isPaid = pl.paid === true;
+                  return (
+                    <li key={pl.id} className="flex items-center gap-3 py-2.5">
+                      <Link
+                        to={`/user/${pl.id}`}
+                        className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200 hover:underline"
+                      >
+                        {pl.name}
+                        {pl.id === me.id && " (you)"}
+                      </Link>
+                      <button
+                        onClick={() => handleTogglePaid(pl.id, !isPaid)}
+                        disabled={payingFor === pl.id}
+                        aria-pressed={isPaid}
+                        aria-label={`${pl.name} — ${isPaid ? "paid, tap to undo" : "not paid, tap to mark paid"}`}
+                        className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 disabled:opacity-50 ${
+                          isPaid
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "border border-slate-700 text-slate-400 hover:bg-slate-800"
+                        }`}
+                      >
+                        {isPaid ? "Paid ✓" : "Not paid"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {unpaidCount > 0 && (
+                <p className="mt-3 text-xs text-slate-400">
+                  {unpaidCount} {unpaidCount === 1 ? "player hasn't" : "players haven't"} paid
+                  yet. Tap a name's badge when their transfer lands.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-800 px-3.5 py-3">
+                <span className="text-sm font-medium text-slate-200">Your share</span>
+                <span
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                    iPaid ? "bg-emerald-100 text-emerald-800" : "bg-amber-500/15 text-amber-300"
+                  }`}
+                >
+                  {iPaid ? "Paid ✓" : "Not paid yet"}
+                </span>
+              </div>
+              {!iPaid && (
+                <button
+                  onClick={() => setPayOpen(true)}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-brand-dark active:scale-[0.97]"
+                >
+                  <CoinsIcon className="h-4 w-4" aria-hidden />
+                  Pay {formatMoney(game.costPerPerson)} to {game.hostName.split(" ")[0]}
+                </button>
+              )}
+              <p className="mt-2.5 text-xs leading-relaxed text-slate-400">
+                {iPaid
+                  ? `${game.hostName.split(" ")[0]} has you down as paid.`
+                  : `You PayNow ${game.hostName.split(" ")[0]} directly — Coterie doesn't hold the money.`}
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {shareMsg && (
         <p className="mb-2 text-center text-sm font-medium text-emerald-600">

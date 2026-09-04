@@ -21,6 +21,8 @@ const Chats       = lazy(() => import("./pages/Chats"));
 const ChatRoom    = lazy(() => import("./pages/ChatRoom"));
 const Interested = lazy(() => import("./pages/Interested"));
 const GameHistory = lazy(() => import("./pages/GameHistory"));
+const Programs      = lazy(() => import("./pages/Programs"));
+const ProgramDetail = lazy(() => import("./pages/ProgramDetail"));
 
 function PageFallback() {
   return (
@@ -63,6 +65,8 @@ export default function App() {
         {/* Highlights feed removed — users post their own clips from their profile.
             Redirect any stray links (old bookmarks, admin moderation) to the profile. */}
         <Route path="/highlights" element={<Navigate to="/profile" replace />} />
+        <Route path="/programs" element={<Suspense fallback={<PageFallback />}><Programs /></Suspense>} />
+        <Route path="/programs/:id" element={<Suspense fallback={<PageFallback />}><ProgramDetail /></Suspense>} />
         <Route path="/chats" element={<Suspense fallback={<PageFallback />}><Chats /></Suspense>} />
         <Route path="/interested" element={<Suspense fallback={<PageFallback />}><Interested /></Suspense>} />
         <Route path="/chats/:id" element={<Suspense fallback={<PageFallback />}><ChatRoom /></Suspense>} />

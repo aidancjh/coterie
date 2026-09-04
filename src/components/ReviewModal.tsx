@@ -87,7 +87,7 @@ export default function ReviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center scrim-50 px-4"
       onClick={(e) => { if (e.target === e.currentTarget) onDone(); }}
     >
       <div className="animate-pop-in w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-xl">

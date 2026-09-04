@@ -35,7 +35,7 @@ export default function Modal({
   describedBy,
   align = "center",
   panelClassName = "",
-  backdropClassName = "bg-black/60",
+  backdropClassName = "scrim-60",
   closeOnBackdrop = true,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,8 +47,11 @@ export default function Modal({
     const panel = panelRef.current;
 
     // Move focus into the dialog (first focusable, else the panel itself).
+    // preventScroll matters for a panel tall enough to scroll inside itself
+    // (the payment sheet): without it the browser scrolls the focused control
+    // into view and the dialog opens already scrolled past its own heading.
     const focusables = panel?.querySelectorAll<HTMLElement>(FOCUSABLE);
-    (focusables && focusables.length ? focusables[0] : panel)?.focus();
+    (focusables && focusables.length ? focusables[0] : panel)?.focus({ preventScroll: true });
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
